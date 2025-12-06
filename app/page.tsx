@@ -1,9 +1,14 @@
-import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import Link from "next/dist/client/link";
 
 export default function Home() {
-  return (  
-    <div className="flex gap-12 items-center justify-center text-xl bg-[#f4f4f4] text-black">
-      landing ye
-    </div>
+  return ( 
+    <div className="h-screen flex items-center justify-center">
+      <div className="flex gap-12 items-center justify-center text-xl text-black">
+        <Link href="/auth/login">
+          <Button className="bg-slate-800 text-white">Login</Button>
+        </Link>
+      </div>
+    </div> 
   );
 }
