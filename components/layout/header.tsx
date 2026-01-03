@@ -20,18 +20,19 @@ import { LuStore } from 'react-icons/lu';
 import { RxReader } from 'react-icons/rx';
 import { IoAlertCircleOutline } from 'react-icons/io5';
 import { Label } from '../ui/label';
+import Profile from "@/app/asset/profile.png"
 
 export default function Header() {
   return (
     <div className="shadow-md w-full sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50">
-      <div className="w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 gap-6 py-3 flex items-center justify-between">
-        <div className="flex gap-4 items-start justify-items-start">
+      <div className="w-full mx-auto max-w-7xl px-4 gap-6 py-3 flex items-center justify-between">
+        <div className="flex gap-2 items-start justify-items-start">
           <SidebarTrigger />
           <Link
             href="/dashboard"
             className="flex items-center gap-3 hover:opacity-90 transition-opacity"
           >
-            <Label className='text-black text-xl font-bold'>KSM Katering Batam</Label>
+            <Label className='text-black text-xs sm:text-xl font-bold'>KSM Katering Batam</Label>
           </Link>
           {/* <Badge variant="secondary" className="bg-red-500/10 w-14 h-6 text-red-500 dark:bg-red-500/20 dark:text-red-300 font-semibold text-[10px] sm:text-sm">
             Beta
@@ -66,8 +67,8 @@ export default function Header() {
               <DropdownMenuTrigger role="button">
                 <div className="flex items-center gap-1">
                   <Image
-                    className="!cursor-pointer !rounded-full border-red-200 border-2 !w-8 !h-8"
-                    src="/vercel.svg"
+                    className="!cursor-pointer !rounded-full border-gray-200 border-2 !w-8 !h-8"
+                    src={Profile}
                     alt="User avatar"
                     width={32}
                     height={32}

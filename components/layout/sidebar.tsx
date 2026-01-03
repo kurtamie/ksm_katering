@@ -1,4 +1,4 @@
-import { Calendar, Home, Inbox, Menu, Search, Settings, User } from "lucide-react"
+import { Calendar, Home, Inbox, Menu, Search, Settings, Soup, SquareMenu, User, UsersRound } from "lucide-react"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
 import logo from "@/app/asset/logo.png"
@@ -32,9 +32,19 @@ const items = [
     icon: Calendar,
   },
   {
+    title: "Customer",
+    url: "/admin/customer",
+    icon: UsersRound,
+  },
+  {
+    title: "Manajemen Lauk",
+    url: "/admin/dish",
+    icon: Soup,
+  },
+  {
     title: "Manajemen Menu",
     url: "/admin/menu",
-    icon: Menu,
+    icon: SquareMenu,
   },
 ]
 

@@ -16,7 +16,7 @@ export default function Page() {
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
 
-  const weekDays = ['S', 'S', 'R', 'K', 'J', 'S', 'M']; // Senin s/d Minggu
+  const weekDays = ['S', 'S', 'R', 'K', 'J', 'S', 'M']; 
 
   const events: Record<string, Array<{ title: string; color: string }>> = {
     '11': [{ title: 'Nasi Kotak', color: 'bg-gray-300' }, { title: 'Prasmanan', color: 'bg-gray-300' }],
@@ -92,7 +92,7 @@ export default function Page() {
         <h1 className="font-bold text-xl">Kalender Pesanan</h1>
       </div>
 
-      <div className="gap-2 mb-6 flex items-center">
+      <div className="gap-2 mb-4 px-4 flex items-center">
         <Label>Waktu</Label>
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
           <SelectTrigger className="w-[180px]">

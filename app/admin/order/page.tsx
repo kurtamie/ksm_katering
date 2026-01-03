@@ -71,12 +71,12 @@ export default function Page() {
             <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:justify-end">
               <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
                 <Link href={"/admin/order/add"}>
-                  <Button className="bg-gray-400">
+                  <Button className="bg-gray-400 cursor-pointer">
                     <FaPlus />
                     Tambah Pesanan
                   </Button>
                 </Link>
-                <Button className="bg-gray-400">Ekspor Laporan Pesanan</Button>
+                <Button className="bg-gray-400 cursor-pointer">Ekspor Laporan Pesanan</Button>
               </div>
               <div className="hidden h-10 w-px bg-gray-400 md:block" />
               <div className="flex flex-1 items-center gap-2 md:flex-none md:min-w-[340px]">
@@ -117,7 +117,6 @@ export default function Page() {
                           selected={dateRange}
                           onSelect={(range) => {
                             setDateRange(range)
-                            // Close popover only when both dates are selected
                             if (range?.from && range?.to) {
                               setOpen(false)
                             }

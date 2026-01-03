@@ -49,7 +49,7 @@ export default function page() {
   return (
     <div className='bg-white w-full mx-auto'>
         <div className='border-b-1 flex justify-between py-4 px-4 max-w-7xl border-black w-full'>
-            <h1 className='font-bold text-xl'>Manajemen Menu</h1>
+            <h1 className='font-bold text-xl'>Manajemen Lauk</h1>
             <div className='ml-0 flex gap-2'>
                 <Link href={"/admin/menu/add"}>
                     <Button className='cursor-pointer bg-gray-400'><FaPlus />Tambah Menu</Button>

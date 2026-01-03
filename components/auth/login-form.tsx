@@ -8,6 +8,10 @@ import Link from "next/link"
 import { useActionState } from "react";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { loginUserAction } from "@/app/data/actions/auth-actions";
+import { ZodErrors } from "../custom/zod-errors";
+import { SubmitButton } from "../custom/submit-button";
+import { StrapiErrors } from "../custom/strapi-errors";
 
 const INITIAL_STATE = {
   zodErrors: null,
@@ -20,10 +24,11 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"form">) {
+  const [formState, formAction] = useActionState(loginUserAction, INITIAL_STATE);
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <form className={cn("flex flex-col gap-6", className)} {...props}>
+    <form action={formAction} className={cn("flex flex-col gap-6", className)} {...props}>
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold">Masuk</h1>
       </div>
@@ -35,7 +40,9 @@ export function LoginForm({
             name="identifier"
             type="text"
             placeholder="Masukkan Nama Pengguna/Nomor Telepon"
-            />
+            defaultValue={formState?.username || ""}
+            />             
+             <ZodErrors error={formState?.zodErrors?.identifier} />
         </div>
         <div className="grid gap-2">
           <div className="flex items-center">
@@ -57,10 +64,10 @@ export function LoginForm({
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          <ZodErrors error={formState?.zodErrors?.password} />
         </div>
-        <Link href={"/admin/order"}>
-            <Button className="cursor-pointer w-full bg-gray-300 text-black hover:bg-[#ffe9ea]">Masuk</Button>
-        </Link>
+        <SubmitButton text="Masuk" loadingText="Loading" className="cursor-pointer w-full bg-gray-300 text-black hover:bg-gray-600"/>
+        <StrapiErrors error={formState?.strapiErrors} />
       </div>
       <div className="text-center text-sm text-muted-foreground">
         Belum punya akun?{" "}

@@ -27,7 +27,7 @@ export default function AppShell({ children }: AppShellProps) {
       <AppSidebar />
       <SidebarInset className="bg-gray-50 min-h-svh overflow-x-hidden">
         <Header />
-        <div className="w-full px-4 py-6">{children}</div>
+        <div className="w-full">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   )
