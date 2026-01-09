@@ -39,7 +39,7 @@ export default function Header() {
     const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
   return (
-    <div className="shadow-md w-full fixed top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50">
+    <div className="shadow-md w-full sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50">
       <AlertDialog open={showLogoutAlert} onOpenChange={setShowLogoutAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -74,7 +74,7 @@ export default function Header() {
           </Badge> */}
         </div>
 
-        <form
+        {/* <form
           className="flex items-center w-full max-w-xl"
         >
           <Input
@@ -87,7 +87,7 @@ export default function Header() {
           >
             <RiSearchLine className="text-white" />
           </Button>
-        </form>
+        </form> */}
 
         <div className="flex items-center gap-4">
           <div className="relative">
