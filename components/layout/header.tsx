@@ -1,5 +1,6 @@
+"use client"
 import Link from 'next/link';
-import React, { Fragment } from 'react';
+import React, { Fragment, useState } from 'react';
 import Image from 'next/image';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
@@ -21,10 +22,44 @@ import { RxReader } from 'react-icons/rx';
 import { IoAlertCircleOutline } from 'react-icons/io5';
 import { Label } from '../ui/label';
 import Profile from "@/app/asset/profile.png"
+import { LogoutButton } from '../custom/logout-button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { logoutAction } from '@/app/data/actions/auth-actions';
 
 export default function Header() {
+    const [showLogoutAlert, setShowLogoutAlert] = useState(false);
+
   return (
-    <div className="shadow-md w-full sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50">
+    <div className="shadow-md w-full fixed top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50">
+      <AlertDialog open={showLogoutAlert} onOpenChange={setShowLogoutAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apakah Anda yakin ingin keluar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Anda perlu masuk kembali untuk menggunakan layanan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <form action={logoutAction}>
+              <AlertDialogAction asChild>
+                <button type="submit" className="bg-red-600 w-full hover:bg-red-700">
+                  Keluar
+                </button>
+              </AlertDialogAction>
+            </form>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="w-full mx-auto max-w-7xl px-4 gap-6 py-3 flex items-center justify-between">
         <div className="flex gap-2 items-start justify-items-start">
           <SidebarTrigger />
@@ -83,34 +118,10 @@ export default function Header() {
                     <AiOutlineUser className="text-xl" /> Akun Saya
                   </Link>
                 </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="history" className="gap-3">
-                  <button
-                    className="flex items-center gap-3 w-full text-left cursor-pointer">
-                    <LuStore className="text-xl" />
-                    Beralih ke Pemilik Barang
-                  </button>
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="theme" className="gap-3">
-                  <Link
-                    href="/order/complete"
-                    className="flex items-center gap-3"
-                  >
-                    <RxReader className="text-xl" /> Riwayat Sewa
-                  </Link>
-                </DropdownMenuRadioItem>
-                
-                <DropdownMenuRadioItem value="theme" className="gap-3">
-                  <Link
-                    href="/report"
-                    className="flex items-center gap-3"
-                  >
-                    <IoAlertCircleOutline  className="text-xl" /> Laporkan Masalah
-                  </Link>
-                </DropdownMenuRadioItem>
 
                 <DropdownMenuSeparator className="w-full h-1 bg-gray-200 dark:bg-gray-700" />
                 <DropdownMenuRadioItem value="logout" className="gap-3">
-                    <Button>Keluar</Button>
+                  <LogoutButton onClick={() => setShowLogoutAlert(true)} />
                 </DropdownMenuRadioItem>
               </DropdownMenuContent>
             </DropdownMenu>

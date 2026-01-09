@@ -16,12 +16,12 @@ import { CalendarIcon } from "lucide-react"
 import MapCoordinatePicker from "@/components/custom/Coordinate-input"
 import { Textarea } from "@/components/ui/textarea"
 import React, { useEffect, useState } from "react"
-import { createOrder, fetchCustomers, fetchNextOrderNumber, fetchPackages } from "@/features/admin/create-order"
-import { fetchOrderMenuRecommendations, type MenuRecommendations } from "@/features/admin/get-order-menu"
+import { fetchCustomers, fetchPackages } from "@/features/admin/create-order"
 import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import type { Coordinate } from "@/types/coordinate"
+import { fetchOrderForEdit, updateOrder } from "@/features/admin/update-order"
 
 type CustomerOption = {
   id: number
@@ -68,7 +68,6 @@ type FormValues = {
   box: string
   pudding: string
   snack: string
-  driver: string
 }
 
 const DEFAULT_COORDINATE: Coordinate = { lat: 1.134118, lng: 104.027631 }
@@ -95,6 +94,8 @@ const calculateLeaveTime = (arrivalTime: string) => {
 
 export default function Page() {
   const router = useRouter()
+  const params = useParams()
+  const documentId = params.documentId as string
   const [open, setOpen] = React.useState(false)
   const [date, setDate] = React.useState<Date>(new Date())
   const [month, setMonth] = React.useState(new Date())
@@ -102,21 +103,9 @@ export default function Page() {
   const [packageOptions, setPackageOptions] = useState<PackageOption[]>([])
   const [productOptions, setProductOptions] = useState<string[]>([])
   const [optionsLoading, setOptionsLoading] = useState(false)
-  const [menuRecommendations, setMenuRecommendations] = useState<MenuRecommendations>({
-    rice: "-",
-    mainDish: "-",
-    additionalDish: "-",
-    vegetable: "-",
-    sauce: "-",
-    chip: "-",
-    fruit: "-",
-    mineralWater: "-",
-    box: "-",
-    pudding: "-",
-    snack: "-",
-  })
   const [coordinates, setCoordinates] = useState<Coordinate>(DEFAULT_COORDINATE)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false)
   const [formValues, setFormValues] = useState<FormValues>({
     orderNo: "",
     customerId: "",
@@ -150,7 +139,11 @@ export default function Page() {
     box: "",
     pudding: "",
     snack: "",
-    driver: "",
+  })
+  const [metaIds, setMetaIds] = useState({
+    orderId: null as number | null,
+    orderDetailId: null as number | null,
+    orderMenuId: null as number | null,
   })
   const suppliers = ["Dapur KCI", "Bu Farida", "Bu Anti"]
   const defaultProducts = [
@@ -246,7 +239,6 @@ export default function Page() {
     "00:00:00",
     "00:30:00",
   ]
-  const drivers = ["Driver KSM 1", "Driver KSM 2", "Driver KSM 3"]
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     if (selectedDate) {
@@ -299,37 +291,74 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    const loadRecommendations = async () => {
-      const recommendations = await fetchOrderMenuRecommendations()
-      setMenuRecommendations(recommendations)
-      setFormValues((prev) => ({
-        ...prev,
-        rice: prev.rice || (recommendations.rice !== "-" ? recommendations.rice : ""),
-        mainDish: prev.mainDish || (recommendations.mainDish !== "-" ? recommendations.mainDish : ""),
-        additionalDish: prev.additionalDish || (recommendations.additionalDish !== "-" ? recommendations.additionalDish : ""),
-        vegetable: prev.vegetable || (recommendations.vegetable !== "-" ? recommendations.vegetable : ""),
-        sauce: prev.sauce || (recommendations.sauce !== "-" ? recommendations.sauce : ""),
-        chip: prev.chip || (recommendations.chip !== "-" ? recommendations.chip : ""),
-        fruit: prev.fruit || (recommendations.fruit !== "-" ? recommendations.fruit : ""),
-      }))
+    if (!documentId) {
+      toast.error("Document ID tidak ditemukan")
+      return
     }
 
-    loadRecommendations()
-  }, [])
-
-  useEffect(() => {
-    const loadOrderNumber = async () => {
+    const loadOrder = async () => {
+      setIsLoadingOrder(true)
       try {
-        const nextOrderNo = await fetchNextOrderNumber()
-        setFormValues((prev) => ({ ...prev, orderNo: nextOrderNo || DEFAULT_ORDER_NUMBER }))
+        const order = await fetchOrderForEdit(documentId)
+        const parsedDate = new Date(order.deliveryDate)
+        const safeDate = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate
+
+        setFormValues({
+          orderNo: order.orderNo || DEFAULT_ORDER_NUMBER,
+          customerId: order.customerId,
+          customerType: order.customerType,
+          executorTeam: order.executorTeam,
+          supplier: order.supplier,
+          product: order.product,
+          packageId: order.packageId,
+          qty: order.qty,
+          sellingPrice: order.sellingPrice,
+          brokerFee: order.brokerFee,
+          priceForKsm: order.priceForKsm,
+          minSellingPrice: order.minSellingPrice,
+          amount: order.amount,
+          deliveryCharge: order.deliveryCharge,
+          totalAmount: order.totalAmount,
+          deliveryNote: order.deliveryNote,
+          arriveTime: order.arriveTime,
+          leaveTime: order.leaveTime,
+          recipientName: order.recipientName,
+          recipientPhone: order.recipientPhone,
+          recipientAddress: order.recipientAddress,
+          rice: order.rice,
+          mainDish: order.mainDish,
+          additionalDish: order.additionalDish,
+          vegetable: order.vegetable,
+          sauce: order.sauce,
+          chip: order.chip,
+          fruit: order.fruit,
+          mineralWater: order.mineralWater,
+          box: order.box,
+          pudding: order.pudding,
+          snack: order.snack,
+        })
+
+        setDate(safeDate)
+        setMonth(safeDate)
+        setCoordinates({
+          lat: order.coordinates.lat || DEFAULT_COORDINATE.lat,
+          lng: order.coordinates.lng || DEFAULT_COORDINATE.lng,
+        })
+        setMetaIds({
+          orderId: order.orderId,
+          orderDetailId: order.orderDetailId,
+          orderMenuId: order.orderMenuId,
+        })
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal memuat nomor order")
-        setFormValues((prev) => ({ ...prev, orderNo: DEFAULT_ORDER_NUMBER }))
+        const message = error instanceof Error ? error.message : "Gagal memuat data pesanan"
+        toast.error(message)
+      } finally {
+        setIsLoadingOrder(false)
       }
     }
 
-    loadOrderNumber()
-  }, [])
+    loadOrder()
+  }, [documentId])
 
   useEffect(() => {
     if (!formValues.arriveTime) {
@@ -376,6 +405,11 @@ export default function Page() {
   const handleSubmit = async () => {
     if (isSubmitting) return
 
+    if (!documentId) {
+      toast.error("Document ID tidak ditemukan")
+      return
+    }
+
     const requiredMap: Array<[keyof FormValues, string]> = [
       ["orderNo", "Nomor Order"],
       ["customerId", "Customer"],
@@ -409,7 +443,6 @@ export default function Page() {
       ["box", "Kotak"],
       ["pudding", "Puding"],
       ["snack", "Snack"],
-      ["driver", "Driver"]
     ]
 
     const missingFields = requiredMap
@@ -431,12 +464,13 @@ export default function Page() {
 
     setIsSubmitting(true)
     try {
-      const createdDate = new Date().toISOString()
-
       const payload = {
+        orderId: metaIds.orderId,
+        orderDetailId: metaIds.orderDetailId,
+        orderMenuId: metaIds.orderMenuId,
         orderData: {
-          order_no: formValues.orderNo,
-          created_date: createdDate,
+          order_no: formValues.orderNo || DEFAULT_ORDER_NUMBER,
+          created_date: new Date().toISOString(),
           customer_id: customerIdNumber,
           customer_type: formValues.customerType,
           executor_name: formValues.executorTeam,
@@ -452,7 +486,6 @@ export default function Page() {
           delivery_address: formValues.recipientAddress,
           latitude: coordinates.lat.toString(),
           longitude: coordinates.lng.toString(),
-          driver: formValues.driver,
         },
         orderDetailData: {
           qty: formValues.qty,
@@ -479,16 +512,16 @@ export default function Page() {
         },
       }
 
-      const result = await createOrder(payload)
+      const result = await updateOrder(documentId, payload)
 
       if (!result.success) {
-        throw new Error(result.error || "Gagal menyimpan pesanan")
+        throw new Error(result.error || "Gagal memperbarui pesanan")
       }
 
-      toast.success("Pesanan berhasil dibuat")
+      toast.success("Pesanan berhasil diperbarui")
       router.push("/admin/order")
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Gagal menyimpan pesanan"
+      const message = error instanceof Error ? error.message : "Gagal memperbarui pesanan"
       toast.error(message)
     } finally {
       setIsSubmitting(false)
@@ -505,14 +538,14 @@ export default function Page() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Form Pesanan</BreadcrumbPage>
+              <BreadcrumbPage>Edit Pesanan</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
         <div className="bg-white mt-6 md:mt-8 flex flex-col px-4 md:px-8 rounded-lg">
           <div className="flex flex-col py-4 md:py-6">
-            <h1 className="font-bold text-lg md:text-xl text-gray-600">FORM PESANAN</h1>
+            <h1 className="font-bold text-lg md:text-xl text-gray-600">EDIT PESANAN</h1>
             <div className="w-full h-px bg-gray-200 my-4 md:my-6"></div>
           </div>
           <div className="w-full mb-6 md:mb-8">
@@ -775,7 +808,7 @@ export default function Page() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.rice}</Label>
+              <Label className="text-xs italic text-gray-500">Recommend: Nasi putih, nasi padang</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="main_dish">Lauk Utama</Label>
@@ -795,7 +828,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
               <Label className="text-xs italic text-gray-500">
-                Recommend: {menuRecommendations.mainDish}
+                Recommend: Ayam bakar padang, Ayam goreng batuaji, Ayam gulai piayu
               </Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
@@ -815,7 +848,7 @@ export default function Page() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.additionalDish}</Label>
+              <Label className="text-xs italic text-gray-500">Recommend: Bakwan jagung, Bakwan kedelai</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="vegetable">Sayur</Label>
@@ -834,7 +867,7 @@ export default function Page() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.vegetable}</Label>
+              <Label className="text-xs italic text-gray-500">Recommend: Tumis, Bayam</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="sauce">Sambal</Label>
@@ -853,7 +886,7 @@ export default function Page() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.sauce}</Label>
+              <Label className="text-xs italic text-gray-500">Recommend: Sambal Terasi, Sambal Ijo</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="chip">Kerupuk</Label>
@@ -873,7 +906,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
               <Label className="text-xs italic text-gray-500">
-                Recommend: {menuRecommendations.chip}
+                Recommend: Kerupuk, Kerupuk udang kecil, kerupuk udang besar
               </Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
@@ -893,7 +926,7 @@ export default function Page() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.fruit}</Label>
+              <Label className="text-xs italic text-gray-500">Recommend: Apel, Jeruk</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="mineral_water">Air Mineral</Label>
@@ -1049,26 +1082,8 @@ export default function Page() {
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <MapCoordinatePicker value={coordinates} onChange={setCoordinates} />
             </div>
-            <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="arrive_time">Driver</Label>
-              <Select value={formValues.driver} onValueChange={(value) => updateField("driver", value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Tentukan driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Driver</SelectLabel>
-                    {drivers.map((driver) => (
-                      <SelectItem key={driver} value={driver}>
-                        {driver}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full md:w-auto bg-gray-400 text-white" onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? "Menyimpan..." : "SIMPAN"}
+            <Button className="w-full md:w-auto bg-gray-400 text-white" onClick={handleSubmit} disabled={isSubmitting || isLoadingOrder}>
+              {isSubmitting ? "Menyimpan..." : "SIMPAN PERUBAHAN"}
             </Button>
           </div>
         </div>

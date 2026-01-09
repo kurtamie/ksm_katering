@@ -16,11 +16,13 @@ type AppShellProps = {
 export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
   const isAuthRoute = pathname?.startsWith(AUTH_PREFIX)
+  const isHomePage = pathname === "/"
+  const isStatusPage = pathname ? /^\/order\/[^/]+\/status$/.test(pathname) : false
   const [open, setOpen] = React.useState(true)
 
-  if (isAuthRoute) {
+  if (isAuthRoute || isHomePage || isStatusPage) {
     return <>{children}</>
-  }
+  } 
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>

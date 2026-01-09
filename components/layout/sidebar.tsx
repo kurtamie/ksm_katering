@@ -1,7 +1,16 @@
-import { Calendar, Home, Inbox, Menu, Search, Settings, Soup, SquareMenu, User, UsersRound } from "lucide-react"
-import { usePathname } from "next/navigation"
-import Image from "next/image"
-import logo from "@/app/asset/logo.png"
+"use client";
+
+import {
+  Calendar,
+  Inbox,
+  Soup,
+  SquareMenu,
+  User,
+  UsersRound,
+} from "lucide-react";
+import { usePathname } from "next/navigation";
+import Image from "next/image";
+import logo from "@/app/asset/logo.png";
 import {
   Sidebar,
   SidebarContent,
@@ -13,43 +22,76 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
   SidebarHeader,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
+import { useEffect, useState } from "react";
 
-const items = [
+const allItems = [
   {
     title: "Manajemen Akun",
     url: "/admin/user",
     icon: User,
+    allowedRoles: ["manager"],
   },
   {
     title: "Pesanan",
     url: "/admin/order",
     icon: Inbox,
+    allowedRoles: ["manager", "sales", "driver"],
   },
   {
     title: "Kalender",
     url: "/admin/calendar",
     icon: Calendar,
+    allowedRoles: ["manager", "sales", "driver"],
   },
   {
     title: "Customer",
     url: "/admin/customer",
     icon: UsersRound,
+    allowedRoles: ["manager"],
   },
   {
     title: "Manajemen Lauk",
     url: "/admin/dish",
     icon: Soup,
+    allowedRoles: ["manager"],
   },
   {
     title: "Manajemen Menu",
     url: "/admin/menu",
     icon: SquareMenu,
+    allowedRoles: ["manager", "sales", "driver"],
   },
-]
+];
 
 export function AppSidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
+  const [userPosition, setUserPosition] = useState<string | null>(null);
+  const [filteredItems, setFilteredItems] = useState(allItems);
+
+  useEffect(() => {
+    const getUserPosition = async () => {
+      try {
+        const position = localStorage.getItem("user_position");
+
+        setUserPosition(position?.toLowerCase() || "manager");
+      } catch (error) {
+        console.error("Error getting user position:", error);
+        setUserPosition("manager"); 
+      }
+    };
+
+    getUserPosition();
+  }, []);
+
+  useEffect(() => {
+    if (userPosition) {
+      const filtered = allItems.filter((item) =>
+        item.allowedRoles.includes(userPosition)
+      );
+      setFilteredItems(filtered);
+    }
+  }, [userPosition]);
 
   return (
     <Sidebar collapsible="icon">
@@ -65,10 +107,10 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {filteredItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     isActive={pathname === item.url}
                     tooltip={item.title}
                   >
@@ -84,5 +126,5 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }

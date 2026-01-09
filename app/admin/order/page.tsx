@@ -9,11 +9,12 @@ import {
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
-import { IoMdCheckboxOutline } from "react-icons/io"
+import { IoIosRefresh, IoMdCheckboxOutline } from "react-icons/io"
 import { CalendarIcon, X, Printer, Trash2 } from 'lucide-react'
 import { FaPlus } from "react-icons/fa"
-import OrderTable, { type Order } from '@/components/admin/order-table'
+import OrderTable from '@/components/admin/order-table'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { type DateRange } from "react-day-picker"
 import {
   Drawer,
@@ -22,6 +23,22 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
+import { fetchOrders, type Order } from '@/features/admin/get-order'
+import { deleteOrder } from '@/features/admin/delete-order'
+import { generateOrderPdf } from '@/features/admin/generate-pdf-order'
+import { Toaster } from '@/components/ui/sonner'
+import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 function formatDateRange(dateRange: DateRange | undefined) {
   if (!dateRange?.from) {
@@ -44,6 +61,8 @@ function formatDateRange(dateRange: DateRange | undefined) {
 }
 
 export default function Page() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const now = new Date()
   const [open, setOpen] = React.useState(false)
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>({
@@ -53,21 +72,140 @@ export default function Page() {
   const [value, setValue] = React.useState(formatDateRange(dateRange))
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [selectedOrder, setSelectedOrder] = React.useState<Order | null>(null)
+  const [orders, setOrders] = React.useState<Order[]>([])
+  const [isDeleting, setIsDeleting] = React.useState(false)
+  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false)
+  const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const documentIdParam = searchParams.get("documentId") ?? searchParams.get("orderId") ?? searchParams.get("id")
 
   React.useEffect(() => {
     setValue(formatDateRange(dateRange))
   }, [dateRange])
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    const loadOrders = async () => {
+      const data = await fetchOrders()
+      if (isMounted) {
+        setOrders(data)
+      }
+    }
+
+    loadOrders()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (!documentIdParam || orders.length === 0) return
+
+    const matched = orders.find((order) =>
+      order.documentId === documentIdParam || String(order.id) === documentIdParam
+    )
+
+    if (matched) {
+      setSelectedOrder(matched)
+      setDrawerOpen(true)
+    }
+  }, [documentIdParam, orders])
+
+  const handleRefreshOrders = async () => {
+    setIsRefreshing(true)
+    try {
+      const data = await fetchOrders()
+      setOrders(data)
+      toast.success("Data pesanan berhasil diperbarui")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal memperbarui data pesanan"
+      toast.error(message)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order)
     setDrawerOpen(true)
   }
 
+  const handleDeleteOrder = async () => {
+    if (!selectedOrder) {
+      toast.error("Pilih pesanan yang akan dihapus")
+      return
+    }
+
+    if (isDeleting) return
+
+    const documentId = selectedOrder.documentId
+
+    if (!documentId) {
+      toast.error("Data pesanan tidak valid (documentId tidak ditemukan)")
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const result = await deleteOrder(documentId)
+
+      if (!result.success) {
+        toast.error(result.error ?? "Gagal menghapus pesanan")
+        return
+      }
+
+      setOrders((prev) => prev.filter((order) => order.documentId !== documentId))
+      setSelectedOrder(null)
+      setDrawerOpen(false)
+      toast.success("Pesanan berhasil dihapus")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleEditOrder = () => {
+    if (!selectedOrder?.documentId) {
+      toast.error("Data pesanan tidak valid (documentId tidak ditemukan)")
+      return
+    }
+
+    router.push(`/admin/order/${selectedOrder.documentId}/edit`)
+  }
+
+  const handlePrintOrder = async () => {
+    if (!selectedOrder?.documentId) {
+      toast.error("Data pesanan tidak valid (documentId tidak ditemukan)")
+      return
+    }
+
+    setIsGeneratingPdf(true)
+    try {
+      await generateOrderPdf(selectedOrder.documentId)
+      toast.success("File PDF berhasil dibuat")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal membuat PDF pesanan"
+      toast.error(message)
+    } finally {
+      setIsGeneratingPdf(false)
+    }
+  }
+
   return (
     <div className="bg-white w-full mx-auto relative">
+        <Toaster position="top-right" richColors />
         <div className="border-b border-black w-full">
           <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
-            <h1 className="text-xl font-bold">Pesanan</h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-bold">Pesanan</h1>
+              <Button 
+                className="cursor-pointer flex items-center p-2 bg-background rounded-lg shadow-sm"
+                onClick={handleRefreshOrders}
+                disabled={isRefreshing}
+              >
+                <IoIosRefresh className={`text-black hover:text-white ${isRefreshing ? 'animate-spin' : ''}`}/>
+              </Button>
+            </div>
             <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:justify-end">
               <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
                 <Link href={"/admin/order/add"}>
@@ -132,7 +270,7 @@ export default function Page() {
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-4 py-4">
-          <OrderTable onOrderClick={handleOrderClick} />
+          <OrderTable orders={orders} onOrderClick={handleOrderClick} loading={isRefreshing} />
         </div>
 
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -143,16 +281,51 @@ export default function Page() {
                   {selectedOrder?.order_no}
                 </DrawerTitle>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-9 whitespace-nowrap">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Hapus
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-9 whitespace-nowrap">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="cursor-pointer h-9 whitespace-nowrap"
+                        disabled={!selectedOrder || isDeleting}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Hapus
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus pesanan?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Pesanan {selectedOrder?.order_no ?? "-"} akan dihapus. Tindakan ini tidak bisa dibatalkan.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteOrder} disabled={isDeleting}>
+                          {isDeleting ? "Menghapus..." : "Ya, hapus"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="cursor-pointer h-9 whitespace-nowrap"
+                    onClick={handleEditOrder}
+                    disabled={!selectedOrder}
+                  >
                     Edit
                   </Button>
-                  <Button variant="outline" size="sm" className="h-9 whitespace-nowrap">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="cursor-pointer h-9 whitespace-nowrap"
+                    onClick={handlePrintOrder}
+                    disabled={!selectedOrder || isGeneratingPdf}
+                  >
                     <Printer className="mr-2 h-4 w-4" />
-                    Cetak Pesanan
+                    {isGeneratingPdf ? "Mencetak..." : "Cetak Pesanan"}
                   </Button>
                   <DrawerClose asChild>
                     <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail pesanan">
@@ -179,6 +352,15 @@ export default function Page() {
                     <DetailRow label="Keterangan" value={selectedOrder.note} />
                     <DetailRow label="Nasi" value={selectedOrder.rice_type} />
                     <DetailRow label="Lauk Utama" value={selectedOrder.side_dish} />
+                    <DetailRow label="Lauk Tambahan" value={selectedOrder.additional_dish} />
+                    <DetailRow label="Sayur" value={selectedOrder.vegetable} />
+                    <DetailRow label="Sambal" value={selectedOrder.sauce} />
+                    <DetailRow label="Kerupuk" value={selectedOrder.chip} />
+                    <DetailRow label="Buah" value={selectedOrder.fruit} />
+                    <DetailRow label="Air Mineral" value={selectedOrder.mineral_water} />
+                    <DetailRow label="Kotak" value={selectedOrder.box} />
+                    <DetailRow label="Puding" value={selectedOrder.pudding} />
+                    <DetailRow label="Snack" value={selectedOrder.snack} />
                   </div>
                 </div>
               )}

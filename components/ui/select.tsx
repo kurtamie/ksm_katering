@@ -4,7 +4,29 @@ import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+
+type SelectContextValue = {
+  searchTerm: string
+}
+
+const SelectContext = React.createContext<SelectContextValue | undefined>(undefined)
+
+const useSelectContext = () => {
+  const context = React.useContext(SelectContext)
+  return context ?? { searchTerm: "" }
+}
+
+const getNodeText = (node: React.ReactNode): string => {
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(getNodeText).join("")
+  if (React.isValidElement(node)) {
+    const element = node as React.ReactElement<{ children?: React.ReactNode }>
+    return getNodeText(element.props.children)
+  }
+  return ""
+}
 
 function Select({
   ...props
@@ -55,8 +77,15 @@ function SelectContent({
   children,
   position = "item-aligned",
   align = "center",
+  style,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const [searchTerm, setSearchTerm] = React.useState("")
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value)
+  }
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -67,20 +96,35 @@ function SelectContent({
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className
         )}
+        style={{
+          width: "var(--radix-select-trigger-width)",
+          minWidth: "var(--radix-select-trigger-width)",
+          ...style,
+        }}
         position={position}
         align={align}
         {...props}
       >
         <SelectScrollUpButton />
-        <SelectPrimitive.Viewport
-          className={cn(
-            "p-1",
-            position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
-          )}
-        >
-          {children}
-        </SelectPrimitive.Viewport>
+        <div className="sticky top-0 z-10 bg-popover p-2 border-b">
+          <Input
+            placeholder="Cari..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="h-8 w-full"
+          />
+        </div>
+        <SelectContext.Provider value={{ searchTerm: searchTerm.toLowerCase() }}>
+          <SelectPrimitive.Viewport
+            className={cn(
+              "p-1",
+              position === "popper" &&
+                "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
+            )}
+          >
+            {children}
+          </SelectPrimitive.Viewport>
+        </SelectContext.Provider>
         <SelectScrollDownButton />
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
@@ -105,6 +149,10 @@ function SelectItem({
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item>) {
+  const { searchTerm } = useSelectContext()
+  const itemLabel = React.useMemo(() => getNodeText(children).toLowerCase(), [children])
+  const matches = searchTerm === "" || itemLabel.includes(searchTerm)
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -112,6 +160,8 @@ function SelectItem({
         "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
+      data-hidden={!matches}
+      hidden={!matches}
       {...props}
     >
       <span

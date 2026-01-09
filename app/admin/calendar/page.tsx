@@ -5,11 +5,15 @@ import React, { useState } from 'react';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchOrders, type Order } from '@/features/admin/get-order';
+import { useRouter } from 'next/navigation';
 
 export default function Page() {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedMonth, setSelectedMonth] = useState('current');
   const today = new Date();
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const months = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -18,10 +22,48 @@ export default function Page() {
 
   const weekDays = ['S', 'S', 'R', 'K', 'J', 'S', 'M']; 
 
-  const events: Record<string, Array<{ title: string; color: string }>> = {
-    '11': [{ title: 'Nasi Kotak', color: 'bg-gray-300' }, { title: 'Prasmanan', color: 'bg-gray-300' }],
-    '16': [{ title: 'Nasi Kotak', color: 'bg-gray-300' }]
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadOrders = async () => {
+      const data = await fetchOrders();
+      if (isMounted) {
+        setOrders(data);
+      }
+    };
+
+    loadOrders();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const parseOrderDate = (order: Order) => {
+    const rawDate = order.createdAt && order.createdAt !== "-" ? order.createdAt : order.order_date;
+    if (!rawDate || rawDate === "-") return null;
+    const parsed = new Date(rawDate);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
   };
+
+  const ordersByDay = React.useMemo(() => {
+    const map = new Map<number, Order[]>();
+    orders.forEach((order) => {
+      const date = parseOrderDate(order);
+      if (!date) return;
+      if (
+        date.getFullYear() === currentDate.getFullYear() &&
+        date.getMonth() === currentDate.getMonth()
+      ) {
+        const day = date.getDate();
+        const existing = map.get(day) ?? [];
+        existing.push(order);
+        map.set(day, existing);
+      }
+    });
+    return map;
+  }, [orders, currentDate]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -44,6 +86,19 @@ export default function Page() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
   };
 
+  const handleMonthChange = (value: string) => {
+    setSelectedMonth(value);
+    if (value === "current") {
+      setCurrentDate(new Date(today.getFullYear(), today.getMonth(), 1));
+      return;
+    }
+
+    const monthIndex = Number(value);
+    if (!Number.isNaN(monthIndex)) {
+      setCurrentDate(new Date(today.getFullYear(), monthIndex, 1));
+    }
+  };
+
   const renderCalendarDays = () => {
     const days = [];
     const isSameMonth = currentDate.getFullYear() === today.getFullYear() && currentDate.getMonth() === today.getMonth();
@@ -55,7 +110,9 @@ export default function Page() {
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const dayEvents = events[day.toString()] || [];
+      const dayOrders = ordersByDay.get(day) ?? [];
+      const visibleOrders = dayOrders.slice(0, 2);
+      const remainingOrders = dayOrders.length - visibleOrders.length;
       const isToday = isSameMonth && day === today.getDate();
       
       days.push(
@@ -70,14 +127,31 @@ export default function Page() {
             {day.toString().padStart(2, '0')}
           </div>
           <div className="space-y-1">
-            {dayEvents.map((event, idx) => (
-              <div
-                key={idx}
-                className={`${event.color} text-xs px-2 py-1 rounded text-gray-700`}
+            {visibleOrders.map((order, idx) => (
+              <button
+                key={order.documentId ?? `${order.order_no}-${idx}`}
+                type="button"
+                onClick={() => {
+                  if (!order.documentId) {
+                    router.push('/admin/order');
+                    return;
+                  }
+                  router.push(`/admin/order?documentId=${order.documentId}`);
+                }}
+                className="w-full text-left text-xs px-2 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
               >
-                {event.title}
-              </div>
+                {order.order_no}
+              </button>
             ))}
+            {remainingOrders > 0 && (
+              <button
+                type="button"
+                onClick={() => router.push('/admin/order')}
+                className="w-full text-left text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
+              >
+                +{remainingOrders} lainnya
+              </button>
+            )}
           </div>
         </div>
       );
@@ -94,7 +168,7 @@ export default function Page() {
 
       <div className="gap-2 mb-4 px-4 flex items-center">
         <Label>Waktu</Label>
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+        <Select value={selectedMonth} onValueChange={handleMonthChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Bulan" />
           </SelectTrigger>
