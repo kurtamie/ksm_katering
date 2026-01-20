@@ -16,6 +16,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "KSM Catering",
   description: "Kateringku, ya KSM Katering",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0f172a",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "KSM Catering",
+  },
 };
 
 export default function RootLayout({

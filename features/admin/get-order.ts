@@ -1,8 +1,11 @@
 import { getStrapiURL } from '@/lib/utils'
+import { getCurrentUser } from '@/features/admin/create-order'
 
 export type Order = {
   id: number | null
   documentId: string | null
+  staff_id: number | null
+  staff_document_id?: string | null
   order_no: string
   customer: string
   customer_type: string
@@ -38,6 +41,8 @@ export type Order = {
 }
 
 const apiBaseUrl = getStrapiURL()
+const SALES_POSITION = "sales"
+const MARKETING_DEPARTMENT = "marketing"
 
 const withFallback = (value: unknown): string => {
   if (value === null || value === undefined) return "-"
@@ -76,6 +81,50 @@ const getAttributes = (item: any) => {
   return item.attributes || item
 }
 
+const getCookie = (name: string): string | null => {
+  if (typeof document === "undefined") return null
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name}=([^;]*)`)
+  )
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+const getRoleFromCookie = () => ({
+  position: getCookie("user_position")?.toLowerCase() ?? null,
+  department: getCookie("user_department")?.toLowerCase() ?? null,
+})
+
+const fetchStaffForUser = async (userId: number) => {
+  const url = new URL('/api/staffs', apiBaseUrl)
+  url.searchParams.set('filters[user_id][id][$eq]', String(userId))
+  url.searchParams.set('pagination[pageSize]', '1')
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const result = await response.json()
+  const data = Array.isArray(result?.data) ? result.data[0] : result?.data ?? result
+  const attributes = getAttributes(data)
+  const staffId = parseId(data?.id ?? attributes?.id)
+  const staffDocumentId = parseDocumentId(
+    data?.documentId ?? attributes?.documentId ?? attributes?.document_id
+  )
+
+  if (!staffId && !staffDocumentId) {
+    return null
+  }
+
+  return { id: staffId, documentId: staffDocumentId }
+}
+
 const normalizeOrder = (item: any): Order => {
   const attributes = getAttributes(item)
   const orderId = parseId(item?.id ?? attributes?.id ?? attributes?.order_no ?? attributes?.orderNo)
@@ -100,10 +149,22 @@ const normalizeOrder = (item: any): Order => {
   
   const staffData = getRelationData(attributes.staff_id)
   const staffAttrs = getAttributes(staffData)
+  const staffId = parseId(
+    staffData?.id ??
+    staffAttrs?.id ??
+    staffAttrs?.staff_id
+  )
+  const staffDocumentId = parseDocumentId(
+    staffData?.documentId ??
+    staffAttrs?.documentId ??
+    staffAttrs?.document_id
+  )
 
   return {
     id: orderId,
     documentId,
+    staff_id: staffId,
+    staff_document_id: staffDocumentId,
     order_no: withFallback(
       attributes.order_no ||
       attributes.orderNo ||
@@ -219,8 +280,39 @@ const normalizeOrder = (item: any): Order => {
   }
 }
 
-export async function fetchOrders(): Promise<Order[]> {
+type FetchOrdersOptions = {
+  position?: string | null
+  department?: string | null
+  staffId?: number | null
+}
+
+export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Order[]> {
   try {
+    const currentUser = typeof window !== "undefined" ? await getCurrentUser() : null
+    const roleFromCookie = getRoleFromCookie()
+    const position =
+      (options.position ??
+        currentUser?.staff?.position ??
+        roleFromCookie.position)?.toLowerCase() ?? null
+    const department =
+      (options.department ??
+        currentUser?.staff?.department ??
+        roleFromCookie.department)?.toLowerCase() ?? null
+    const shouldLimitToStaff =
+      position === SALES_POSITION && department === MARKETING_DEPARTMENT
+    let staffId = options.staffId ?? currentUser?.staff?.id ?? null
+    let staffDocumentId = currentUser?.staff?.documentId ?? null
+
+    if (shouldLimitToStaff && currentUser?.id && (!staffId || !staffDocumentId)) {
+      const staffFromUser = await fetchStaffForUser(currentUser.id)
+      staffId = staffId ?? staffFromUser?.id ?? null
+      staffDocumentId = staffDocumentId ?? staffFromUser?.documentId ?? null
+    }
+
+    if (shouldLimitToStaff && !staffId && !staffDocumentId) {
+      return []
+    }
+
     const url = new URL('/api/orders', apiBaseUrl)
     
     url.searchParams.set('populate[customer_id][populate]', '*')
@@ -228,6 +320,14 @@ export async function fetchOrders(): Promise<Order[]> {
     url.searchParams.set('populate[package_id][populate]', '*')
     url.searchParams.set('populate[order_details][populate]', '*')
     url.searchParams.set('populate[order_menus][populate]', '*')
+    if (shouldLimitToStaff) {
+      if (staffId) {
+        url.searchParams.set('filters[$or][0][staff_id][id][$eq]', String(staffId))
+      }
+      if (staffDocumentId) {
+        url.searchParams.set('filters[$or][1][staff_id][documentId][$eq]', staffDocumentId)
+      }
+    }
     
     const response = await fetch(url, {
       method: 'GET',
@@ -257,7 +357,15 @@ export async function fetchOrders(): Promise<Order[]> {
     
     console.log('Orders before normalize:', orders) 
     
-    const normalized = orders.map(normalizeOrder)
+    let normalized = orders.map(normalizeOrder)
+
+    if (shouldLimitToStaff) {
+      normalized = normalized.filter((order: any) => {
+        if (staffId && order.staff_id === staffId) return true
+        if (staffDocumentId && order.staff_document_id === staffDocumentId) return true
+        return false
+      })
+    }
     
     console.log('Normalized orders:', normalized) 
     

@@ -90,12 +90,12 @@ export default function Header() {
         </form> */}
 
         <div className="flex items-center gap-4">
-          <div className="relative">
+          {/* <div className="relative">
             <FiBell
               role="button"
               className="cursor-pointer rounded-full w-6 h-6"
             />
-          </div>
+          </div> */}
 
           <Fragment>
             <DropdownMenu>

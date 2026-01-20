@@ -24,6 +24,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { fetchOrders, type Order } from '@/features/admin/get-order'
+import { getCurrentUser } from '@/features/admin/create-order'
 import { deleteOrder } from '@/features/admin/delete-order'
 import { generateOrderPdf } from '@/features/admin/generate-pdf-order'
 import { Toaster } from '@/components/ui/sonner'
@@ -73,10 +74,32 @@ export default function Page() {
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [selectedOrder, setSelectedOrder] = React.useState<Order | null>(null)
   const [orders, setOrders] = React.useState<Order[]>([])
+  const [userPosition, setUserPosition] = React.useState<string | null>(null)
+  const [userDepartment, setUserDepartment] = React.useState<string | null>(null)
+  const [currentStaffId, setCurrentStaffId] = React.useState<number | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const documentIdParam = searchParams.get("documentId") ?? searchParams.get("orderId") ?? searchParams.get("id")
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    const loadCurrentUser = async () => {
+      const user = await getCurrentUser()
+      if (isMounted) {
+        setCurrentStaffId(user?.staff?.id ?? null)
+        setUserPosition(user?.staff?.position ?? null)
+        setUserDepartment(user?.staff?.department ?? null)
+      }
+    }
+
+    loadCurrentUser()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   React.useEffect(() => {
     setValue(formatDateRange(dateRange))
@@ -111,6 +134,19 @@ export default function Page() {
       setDrawerOpen(true)
     }
   }, [documentIdParam, orders])
+
+  const visibleOrders = React.useMemo(() => {
+    const isSalesMarketing = userPosition === "sales" && userDepartment === "marketing"
+    if (!isSalesMarketing) {
+      return orders
+    }
+
+    if (!currentStaffId) {
+      return []
+    }
+
+    return orders.filter((order) => order.staff_id === currentStaffId)
+  }, [orders, userPosition, currentStaffId])
 
   const handleRefreshOrders = async () => {
     setIsRefreshing(true)
@@ -270,7 +306,7 @@ export default function Page() {
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-4 py-4">
-          <OrderTable orders={orders} onOrderClick={handleOrderClick} loading={isRefreshing} />
+          <OrderTable orders={visibleOrders} onOrderClick={handleOrderClick} loading={isRefreshing} />
         </div>
 
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>

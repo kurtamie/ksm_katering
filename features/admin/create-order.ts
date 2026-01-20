@@ -10,6 +10,7 @@ type PackageOption = {
   id: number
   package_name: string
   product?: string
+  price?: string
 }
 
 type OrderPayload = {
@@ -69,6 +70,9 @@ type CurrentUser = {
   email: string
   staff?: {
     id: number
+    documentId?: string
+    position?: string
+    department?: string
   }
 }
 
@@ -110,8 +114,24 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     }
 
     if (data.staff) {
+      const staffData = data.staff.data ?? data.staff
+      const staffAttributes = staffData?.attributes ?? staffData
       user.staff = {
-        id: data.staff.id || data.staff.data?.id
+        id: staffData?.id ?? data.staff.id ?? data.staff.data?.id,
+        documentId:
+          typeof staffAttributes?.documentId === 'string'
+            ? staffAttributes.documentId
+            : typeof staffAttributes?.document_id === 'string'
+              ? staffAttributes.document_id
+              : undefined,
+        position:
+          typeof staffAttributes?.position === 'string'
+            ? staffAttributes.position.toLowerCase()
+            : undefined,
+        department:
+          typeof staffAttributes?.department === 'string'
+            ? staffAttributes.department.toLowerCase()
+            : undefined,
       }
     }
 
@@ -173,11 +193,12 @@ export async function fetchPackages(): Promise<PackageOption[]> {
     
     const data = await response.json() as any
 
-    const normalizePackage = (item: any): PackageOption => ({
-      id: item.id,
-      package_name: item.package_name ?? item.attributes?.package_name ?? '',
-      product: item.product ?? item.attributes?.product ?? item.product_name ?? item.attributes?.product_name ?? '',
-    })
+  const normalizePackage = (item: any): PackageOption => ({
+    id: item.id,
+    package_name: item.package_name ?? item.attributes?.package_name ?? '',
+    product: item.product ?? item.attributes?.product ?? item.product_name ?? item.attributes?.product_name ?? '',
+    price: item.price ?? item.attributes?.price ?? '',
+  })
 
     if (Array.isArray(data?.packages)) {
       return data.packages.map(normalizePackage)

@@ -6,10 +6,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import React from 'react'
-import { createMenu } from '@/features/admin/create-menu'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
+import { fetchMenuForEdit, updateMenu } from '@/features/admin/update-menu'
 
 type FormValues = {
   packageName: string
@@ -27,7 +27,10 @@ const toNullable = (value: string) => {
 
 export default function page() {
   const router = useRouter()
+  const params = useParams()
+  const documentId = params.documentId as string
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [isLoadingMenu, setIsLoadingMenu] = React.useState(false)
   const [formValues, setFormValues] = React.useState<FormValues>({
     packageName: '',
     subname: '',
@@ -41,8 +44,42 @@ export default function page() {
     setFormValues((prev) => ({ ...prev, [field]: value }))
   }
 
+  React.useEffect(() => {
+    if (!documentId) {
+      toast.error("Document ID tidak ditemukan")
+      return
+    }
+
+    const loadMenu = async () => {
+      setIsLoadingMenu(true)
+      try {
+        const menu = await fetchMenuForEdit(documentId)
+        setFormValues({
+          packageName: menu.package_name || '',
+          subname: menu.subname || '',
+          description: menu.description || '',
+          imageUrl: menu.image_url || '',
+          price: menu.price || '',
+          product: menu.product || '',
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Gagal memuat data paket"
+        toast.error(message)
+      } finally {
+        setIsLoadingMenu(false)
+      }
+    }
+
+    loadMenu()
+  }, [documentId])
+
   const handleSubmit = async () => {
     if (isSubmitting) return
+
+    if (!documentId) {
+      toast.error("Document ID tidak ditemukan")
+      return
+    }
 
     const requiredMap: Array<[keyof FormValues, string]> = [
       ['packageName', 'Nama Paket'],
@@ -70,16 +107,16 @@ export default function page() {
         product: toNullable(formValues.product),
       }
 
-      const result = await createMenu(payload)
+      const result = await updateMenu(documentId, payload)
 
       if (!result.success) {
-        throw new Error(result.error || 'Gagal menyimpan paket')
+        throw new Error(result.error || 'Gagal memperbarui paket')
       }
 
-      toast.success('Paket berhasil dibuat')
+      toast.success('Paket berhasil diperbarui')
       router.push('/admin/menu')
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Gagal menyimpan paket'
+      const message = error instanceof Error ? error.message : 'Gagal memperbarui paket'
       toast.error(message)
     } finally {
       setIsSubmitting(false)
@@ -97,13 +134,13 @@ export default function page() {
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Form Menu</BreadcrumbPage>
+                <BreadcrumbPage>Edit Menu</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
           <div className='bg-white mt-6 md:mt-8 flex flex-col px-4 md:px-8 rounded-lg'>
               <div className='flex flex-col py-4 md:py-6'>
-                  <h1 className='font-bold text-lg md:text-xl text-gray-600'>FORM MENU</h1>
+                  <h1 className='font-bold text-lg md:text-xl text-gray-600'>EDIT MENU</h1>
                   <div className="w-full h-px bg-gray-200 my-4 md:my-6"></div>
               </div>
               <div className='w-full mb-6 md:mb-8'>
@@ -178,9 +215,9 @@ export default function page() {
                   <Button
                       className='w-full md:w-auto bg-gray-400 text-white'
                       onClick={handleSubmit}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isLoadingMenu}
                   >
-                      {isSubmitting ? 'Menyimpan...' : 'SIMPAN'}
+                      {isSubmitting ? 'Menyimpan...' : 'SIMPAN PERUBAHAN'}
                   </Button>
               </div>
           </div>

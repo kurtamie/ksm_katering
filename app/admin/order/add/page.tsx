@@ -33,6 +33,7 @@ type PackageOption = {
   id: number
   package_name: string
   product?: string
+  price?: string
 }
 
 type FormValues = {
@@ -91,6 +92,18 @@ const calculateLeaveTime = (arrivalTime: string) => {
   const toTwoDigits = (value: number) => value.toString().padStart(2, "0")
 
   return `${toTwoDigits(date.getHours())}:${toTwoDigits(date.getMinutes())}:${toTwoDigits(date.getSeconds())}`
+}
+
+const normalizePriceToThousands = (value: string | number | null | undefined) => {
+  if (value === null || value === undefined) return ""
+  const raw = String(value).trim()
+  if (!raw) return ""
+  const digitsOnly = raw.replace(/[^\d]/g, "")
+  if (!digitsOnly) return ""
+  const numeric = Number(digitsOnly)
+  if (Number.isNaN(numeric)) return ""
+  const inThousands = numeric / 1000
+  return Number.isInteger(inThousands) ? String(inThousands) : String(inThousands)
 }
 
 export default function Page() {
@@ -280,6 +293,11 @@ export default function Page() {
     return Array.from(uniqueProducts.values())
   }
 
+  const normalizedProduct = formValues.product.trim().toLowerCase()
+  const filteredPackageOptions = normalizedProduct
+    ? packageOptions.filter((pkg) => pkg.product?.trim().toLowerCase() === normalizedProduct)
+    : packageOptions
+
   useEffect(() => {
     const loadOptions = async () => {
       setOptionsLoading(true)
@@ -340,6 +358,27 @@ export default function Page() {
     const nextLeaveTime = calculateLeaveTime(formValues.arriveTime)
     setFormValues((prev) => (prev.leaveTime === nextLeaveTime ? prev : { ...prev, leaveTime: nextLeaveTime }))
   }, [formValues.arriveTime])
+
+  useEffect(() => {
+    if (!formValues.packageId) return
+
+    const isValid = filteredPackageOptions.some((pkg) => pkg.id.toString() === formValues.packageId)
+    if (!isValid) {
+      setFormValues((prev) => ({ ...prev, packageId: "" }))
+    }
+  }, [filteredPackageOptions, formValues.packageId])
+
+  useEffect(() => {
+    if (!formValues.packageId) {
+      setFormValues((prev) => (prev.sellingPrice === "" ? prev : { ...prev, sellingPrice: "" }))
+      return
+    }
+
+    const selectedPackage = packageOptions.find((pkg) => pkg.id.toString() === formValues.packageId)
+    const nextSellingPrice = normalizePriceToThousands(selectedPackage?.price)
+
+    setFormValues((prev) => (prev.sellingPrice === nextSellingPrice ? prev : { ...prev, sellingPrice: nextSellingPrice }))
+  }, [formValues.packageId, packageOptions])
 
   useEffect(() => {
     const qtyNumber = Number(formValues.qty)
@@ -639,14 +678,26 @@ export default function Page() {
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="product">Paket</Label>
-              <Select value={formValues.packageId} onValueChange={(value) => updateField("packageId", value)} disabled={optionsLoading}>
+              <Select
+                value={formValues.packageId}
+                onValueChange={(value) => updateField("packageId", value)}
+                disabled={optionsLoading}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={optionsLoading ? "Memuat..." : "Pilih Paket"} />
+                  <SelectValue
+                    placeholder={
+                      optionsLoading
+                        ? "Memuat..."
+                        : formValues.product
+                          ? "Pilih Paket"
+                          : "Pilih produk dulu"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Paket</SelectLabel>
-                    {packageOptions.map((packageses) => (
+                    {filteredPackageOptions.map((packageses) => (
                       <SelectItem key={packageses.id} value={packageses.id.toString()}>
                         {packageses.package_name}
                       </SelectItem>

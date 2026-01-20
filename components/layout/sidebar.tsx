@@ -8,6 +8,7 @@ import {
   User,
   UsersRound,
 } from "lucide-react";
+import { VscGraph } from "react-icons/vsc";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import logo from "@/app/asset/logo.png";
@@ -25,73 +26,136 @@ import {
 } from "@/components/ui/sidebar";
 import { useEffect, useState } from "react";
 
-const allItems = [
+const NAV_ITEMS = [
   {
     title: "Manajemen Akun",
     url: "/admin/user",
     icon: User,
-    allowedRoles: ["manager"],
   },
   {
     title: "Pesanan",
     url: "/admin/order",
     icon: Inbox,
-    allowedRoles: ["manager", "sales", "driver"],
   },
   {
     title: "Kalender",
     url: "/admin/calendar",
     icon: Calendar,
-    allowedRoles: ["manager", "sales", "driver"],
   },
   {
     title: "Customer",
     url: "/admin/customer",
     icon: UsersRound,
-    allowedRoles: ["manager"],
   },
   {
     title: "Manajemen Lauk",
     url: "/admin/dish",
     icon: Soup,
-    allowedRoles: ["manager"],
   },
   {
     title: "Manajemen Menu",
     url: "/admin/menu",
     icon: SquareMenu,
-    allowedRoles: ["manager", "sales", "driver"],
+  },
+  {
+    title: "Grafik",
+    url: "/admin/graph",
+    icon: VscGraph,
   },
 ];
+
+const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/dish", "/admin/menu"];
+const DEFAULT_ALLOWED_ROUTES = ["/admin/order"];
+const ROLE_ROUTE_ACCESS = [
+  {
+    position: "admin_finance",
+    department: "finance",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "admin_operational",
+    department: "operational",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "supervisor",
+    department: "operational",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "prasmanan",
+    department: "operational",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "kitchen",
+    department: "operational",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "sales",
+    department: "marketing",
+    routes: [...BASE_ROUTES, "/admin/customer"],
+  },
+  {
+    position: "driver",
+    department: "delivery",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "manager",
+    department: "manager",
+    routes: [...BASE_ROUTES, "/admin/graph", "/admin/user"],
+  },
+];
+
+function getAllowedRoutes(position: string | null, department: string | null) {
+  if (!position || !department) {
+    return DEFAULT_ALLOWED_ROUTES;
+  }
+
+  const match = ROLE_ROUTE_ACCESS.find(
+    (rule) => rule.position === position && rule.department === department
+  );
+
+  return match?.routes ?? DEFAULT_ALLOWED_ROUTES;
+}
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [userPosition, setUserPosition] = useState<string | null>(null);
-  const [filteredItems, setFilteredItems] = useState(allItems);
+  const [userDepartment, setUserDepartment] = useState<string | null>(null);
+  const [filteredItems, setFilteredItems] = useState(NAV_ITEMS);
 
   useEffect(() => {
-    const getUserPosition = async () => {
+    const getUserRole = async () => {
       try {
-        const position = localStorage.getItem("user_position");
+        const position =
+          localStorage.getItem("user_position") ??
+          getCookie("user_position");
+        const department =
+          localStorage.getItem("user_department") ??
+          getCookie("user_department");
 
-        setUserPosition(position?.toLowerCase() || "manager");
+        setUserPosition(position?.toLowerCase() ?? null);
+        setUserDepartment(department?.toLowerCase() ?? null);
       } catch (error) {
-        console.error("Error getting user position:", error);
-        setUserPosition("manager"); 
+        console.error("Error getting user role:", error);
+        setUserPosition(null);
+        setUserDepartment(null);
       }
     };
 
-    getUserPosition();
+    getUserRole();
   }, []);
 
   useEffect(() => {
-    if (userPosition) {
-      const filtered = allItems.filter((item) =>
-        item.allowedRoles.includes(userPosition)
-      );
-      setFilteredItems(filtered);
-    }
-  }, [userPosition]);
+    const allowedRoutes = getAllowedRoutes(userPosition, userDepartment);
+    const filtered = NAV_ITEMS.filter((item) =>
+      allowedRoutes.includes(item.url)
+    );
+    setFilteredItems(filtered);
+  }, [userPosition, userDepartment]);
 
   return (
     <Sidebar collapsible="icon">
@@ -127,4 +191,12 @@ export function AppSidebar() {
       </SidebarContent>
     </Sidebar>
   );
+}
+
+function getCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name}=([^;]*)`)
+  );
+  return match ? decodeURIComponent(match[1]) : null;
 }

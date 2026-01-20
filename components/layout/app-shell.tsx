@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import Header from "@/components/layout/header"
 import { AppSidebar } from "@/components/layout/sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import PwaPrompt from "@/components/custom/pwa-prompt"
 
 const AUTH_PREFIX = "/auth"
 
@@ -21,15 +22,23 @@ export default function AppShell({ children }: AppShellProps) {
   const [open, setOpen] = React.useState(true)
 
   if (isAuthRoute || isHomePage || isStatusPage) {
-    return <>{children}</>
+    return (
+      <>
+        <PwaPrompt />
+        {children}
+      </>
+    )
   } 
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
       <AppSidebar />
-      <SidebarInset className="bg-gray-50 min-h-svh">
+      <SidebarInset className="bg-gray-50 min-h-svh overflow-x-hidden">
         <Header />
-        <div className="w-full overflow-x-hidden">{children}</div>
+        <div className="w-full">
+          <PwaPrompt />
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )

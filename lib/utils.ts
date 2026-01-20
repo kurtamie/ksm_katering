@@ -7,6 +7,6 @@ export function cn(...inputs: ClassValue[]) {
 
 export function getStrapiURL(path = "") {
   return `${
-    process.env.API_URL || "http://localhost:1337"
+    process.env.API_URL || "https://big-surprise-ab176c9ad8.strapiapp.com"
   }${path}`;
 }

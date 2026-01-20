@@ -1,7 +1,5 @@
 "use client"
-import { Label } from '@/components/ui/label'
-import React, { useState } from 'react'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import React from 'react'
 import {
   Table,
   TableBody,
@@ -9,31 +7,123 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/ui/table"
+import { Button } from '@/components/ui/button'
+import { FaPlus } from 'react-icons/fa'
+import Link from 'next/link'
+import { IoIosCall } from 'react-icons/io'
+import { IoChatbox } from 'react-icons/io5'
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { Ban, UserIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { FaPlus } from 'react-icons/fa';
-import Link from 'next/link';
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
+import { Trash2, X } from 'lucide-react'
+import { fetchCustomers, type Customer } from '@/features/admin/get-customer'
+import { Toaster } from '@/components/ui/sonner'
+import { toast } from 'sonner'
+import { useSearchParams } from 'next/navigation'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
-export default function page() {  
-  const [selectedUser, setSelectedUser] = useState('current');
-  const users = [
-    'Pengguna Aktif', 'Diblokir', 'Tidak Aktif',
-  ];
+const getDisplayName = (customer: Customer) => {
+  if (customer.name !== "-") return customer.name
+  if (customer.company_name !== "-") return customer.company_name
+  return "-"
+}
+
+const normalizePhoneForLink = (value: string) => {
+  const digits = value.replace(/\D+/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('0')) return `62${digits.slice(1)}`
+  if (digits.startsWith('8')) return `62${digits}`
+  return digits
+}
+
+export default function page() {
+  const searchParams = useSearchParams()
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
+  const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null)
+  const [customers, setCustomers] = React.useState<Customer[]>([])
+  const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const documentIdParam = searchParams.get("documentId") ?? searchParams.get("customerId") ?? searchParams.get("id")
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    const loadCustomers = async () => {
+      const data = await fetchCustomers()
+      if (isMounted) {
+        setCustomers(data)
+      }
+    }
+
+    loadCustomers()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  React.useEffect(() => {
+    if (!documentIdParam || customers.length === 0) return
+
+    const matched = customers.find((customer) =>
+      customer.documentId === documentIdParam || String(customer.id) === documentIdParam
+    )
+
+    if (matched) {
+      setSelectedCustomer(matched)
+      setDrawerOpen(true)
+    }
+  }, [documentIdParam, customers])
+
+  const handleCustomerClick = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setDrawerOpen(true)
+  }
+
+  const handleRefreshCustomers = async () => {
+    setIsRefreshing(true)
+    try {
+      const data = await fetchCustomers()
+      setCustomers(data)
+      toast.success("Data customer berhasil diperbarui")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal memperbarui data customer"
+      toast.error(message)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   return (
     <div className='bg-white w-full mx-auto'>
-        <div className='border-b-1 py-4 px-4 flex justify-between max-w-7xl border-black w-full'>
-            <h1 className='font-bold text-xl'>Manajemen Customer</h1>
+        <Toaster position="top-right" richColors />
+        <div className='border-b-1 py-4 px-4 flex flex-col gap-2 md:flex-row md:justify-between max-w-7xl border-black w-full'>
+            <div className="flex items-center gap-3">
+              <h1 className='font-bold text-xl'>Manajemen Customer</h1>
+              {/* <Button
+                variant="outline"
+                size="sm"
+                className='cursor-pointer'
+                onClick={handleRefreshCustomers}
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? "Memuat..." : "Refresh"}
+              </Button> */}
+            </div>
             <div className='ml-0 flex gap-2'>
                 <Link href={"/admin/customer/add"}>
                     <Button className='cursor-pointer bg-gray-400'><FaPlus />Tambah Customer</Button>
@@ -41,102 +131,173 @@ export default function page() {
             </div>
         </div>
         <div className="mb-6 p-4">
-            <div className='gap-6 flex'>
-                <Label>Status :</Label>
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectGroup>
-                    <SelectLabel>Status User</SelectLabel>
-                    <SelectItem value="current">Pengguna Aktif</SelectItem>
-                    {users.map((user, idx) => (
-                        <SelectItem key={idx} value={idx.toString()}>
-                        {user}
-                        </SelectItem>
-                    ))}
-                    </SelectGroup>
-                </SelectContent>
-                </Select>
-            </div>
-            <Table className='border mt-6 mb-8'>
-              <TableHeader>
+          <Table className='border mt-2 mb-8'>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Gender</TableHead>
+                <TableHead>Nama</TableHead>
+                <TableHead></TableHead>
+                <TableHead className='text-center'>Nama Sales</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customers.length === 0 ? (
                 <TableRow>
-                  <TableHead>Pengguna</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className='text-center'>Aksi</TableHead>
+                  <TableCell colSpan={4} className="text-center text-sm text-gray-500">
+                    Belum ada data customer
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                    <TableRow>
-                      <TableCell className="flex items-center gap-3">
-                          <div className="h-10 w-10 flex-shrink-0 bg-gray-200 rounded-full flex items-center justify-center">
-                            <UserIcon className="h-6 w-6 text-gray-500" />
-                          </div>
-                        <span>Pak Matheus Cunha</span>
-                      </TableCell>
-                      <TableCell>admin123@gmail.com</TableCell>
-                      <TableCell>Aktif</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2 justify-center">
-                          <Button 
-                            className='bg-white border border-gray-500 hover:bg-red-600 cursor-pointer hover:text-white' 
+              ) : (
+                customers.map((customer) => {
+                  const phoneLink = normalizePhoneForLink(customer.phone_no)
+                  const hasPhone = phoneLink.length > 0
+
+                  return (
+                    <TableRow
+                      key={customer.documentId ?? customer.id ?? customer.phone_no}
+                      className="cursor-pointer"
+                      onClick={() => handleCustomerClick(customer)}
+                    >
+                      <TableCell>{customer.gender}</TableCell>
+                      <TableCell>{getDisplayName(customer)}</TableCell>
+                      <TableCell className='flex items-center gap-4'>
+                        {hasPhone ? (
+                          <Button
+                            asChild
+                            className='cursor-pointer border text-black bg-white hover:bg-black hover:text-white'
+                            variant="outline"
                             size="icon"
                           >
-                            <Ban className="h-4 w-4 text-gray-500" />
-                          </Button> 
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="flex items-center gap-3">
-                          <div className="h-10 w-10 flex-shrink-0 bg-gray-200 rounded-full flex items-center justify-center">
-                            <UserIcon className="h-6 w-6 text-gray-500" />
-                          </div>
-                        <span>Pak Matheus Cunha</span>
-                      </TableCell>
-                      <TableCell>admin123@gmail.com</TableCell>
-                      <TableCell>Aktif</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2 justify-center">
-                          <Button 
-                            className='bg-white border border-gray-500 hover:bg-red-600 cursor-pointer hover:text-white' 
+                            <a href={`tel:${phoneLink}`} onClick={(event) => event.stopPropagation()}>
+                              <IoIosCall />
+                            </a>
+                          </Button>
+                        ) : (
+                          <Button
+                            className='cursor-pointer border text-black bg-white'
+                            variant="outline"
+                            size="icon"
+                            disabled
+                          >
+                            <IoIosCall />
+                          </Button>
+                        )}
+                        {hasPhone ? (
+                          <Button
+                            asChild
+                            className='cursor-pointer border text-black bg-white hover:bg-black hover:text-white'
+                            variant="outline"
                             size="icon"
                           >
-                            <Ban className="h-4 w-4 text-gray-500" />
-                          </Button> 
-                        </div>
+                            <a href={`https://wa.me/${phoneLink}`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+                              <IoChatbox />
+                            </a>
+                          </Button>
+                        ) : (
+                          <Button
+                            className='cursor-pointer border text-black bg-white'
+                            variant="outline"
+                            size="icon"
+                            disabled
+                          >
+                            <IoChatbox />
+                          </Button>
+                        )}
                       </TableCell>
+                      <TableCell className='text-center'>{customer.sales_name}</TableCell>
                     </TableRow>
-              </TableBody>
-            </Table>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
 
           <div className='flex justify-between mb-12'>
             <div className='flex justify-start'>
-              <h1>Menampilkan: 2 - 2 Pengguna</h1>
-            </div>
-            <div className='flex justify-end'>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious href="#" />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink href="#" isActive>1</PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext href="#" />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+              <h1>Menampilkan: {customers.length === 0 ? 0 : 1} - {customers.length} Customer</h1>
             </div>
           </div>
         </div>
+
+        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <DrawerContent className="h-full w-full max-w-[100vw] md:max-w-3xl ml-auto">
+            <DrawerHeader className="border-b px-4 py-4 md:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <DrawerTitle className="text-xl font-bold">
+                  {selectedCustomer ? getDisplayName(selectedCustomer) : "Detail Customer"}
+                </DrawerTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="cursor-pointer h-9 whitespace-nowrap"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Hapus
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus customer?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Customer ini akan dihapus
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction>
+                          Ya Hapus
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="cursor-pointer h-9 whitespace-nowrap"
+                  >
+                    Edit
+                  </Button>
+                  <DrawerClose asChild>
+                    <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail customer">
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </DrawerClose>
+                </div>
+              </div>
+            </DrawerHeader>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
+              {selectedCustomer && (
+                <div className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <DetailRow label="Nama Sales" value={selectedCustomer.sales_name} />
+                    <DetailRow label="Gender" value={selectedCustomer.gender} />
+                    <DetailRow label="Nama" value={selectedCustomer.name} />
+                    <DetailRow label="Nama Instansi/Perusahaan" value={selectedCustomer.company_name} />
+                    <DetailRow label="No. HP" value={selectedCustomer.phone_no} />
+                    <DetailRow label="Instansi" value={selectedCustomer.company} />
+                    <DetailRow label="Alamat" value={selectedCustomer.address} />
+                    <DetailRow label="Latitude" value={selectedCustomer.latitude} />
+                    <DetailRow label="Longitude" value={selectedCustomer.longitude} />
+                    <DetailRow label="User" value={selectedCustomer.user_id} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+    </div>
+  )
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-sm text-gray-600">{label}</div>
+      <div className="text-base font-normal">{value}</div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import {
   registerUserService,
   loginUserService,
 } from "@/app/data/services/auth-service";
+import { getStrapiURL } from "@/lib/utils";
 
 const config = {
   maxAge: 60 * 60 * 24 * 7, // 1 week
@@ -152,6 +153,15 @@ export async function loginUserAction(prevState: any, formData: FormData) {
   const cookieStore = await cookies();
   cookieStore.set("jwt", responseData.jwt, config);
   cookieStore.set("userId", String(responseData.user.id), config);
+  const userRole = await getUserRoleFromToken(responseData.jwt);
+
+  if (userRole?.position) {
+    cookieStore.set("user_position", userRole.position, config);
+  }
+
+  if (userRole?.department) {
+    cookieStore.set("user_department", userRole.department, config);
+  }
 
   redirect("/admin/order");
 }
@@ -159,5 +169,53 @@ export async function loginUserAction(prevState: any, formData: FormData) {
 export async function logoutAction() {
   const cookieStore = await cookies();
   cookieStore.set("jwt", "", { ...config, maxAge: 0 });
+  cookieStore.set("user_position", "", { ...config, maxAge: 0 });
+  cookieStore.set("user_department", "", { ...config, maxAge: 0 });
+  cookieStore.set("userId", "", { ...config, maxAge: 0 });
   redirect("/");
+}
+
+async function getUserRoleFromToken(token: string) {
+  try {
+    const url = new URL("/api/users/me", getStrapiURL());
+    url.searchParams.set("populate", "staff");
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch user role:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const staff = data?.staff?.data ?? data?.staff ?? null;
+    const staffAttributes = staff?.attributes ?? staff ?? null;
+    const position =
+      staffAttributes?.position ?? data?.position ?? null;
+    const department =
+      staffAttributes?.department ?? data?.department ?? null;
+    const normalizedPosition =
+      typeof position === "string" && position.trim().length > 0
+        ? position.toLowerCase()
+        : null;
+    const normalizedDepartment =
+      typeof department === "string" && department.trim().length > 0
+        ? department.toLowerCase()
+        : null;
+
+    if (!normalizedPosition && !normalizedDepartment) {
+      return null;
+    }
+
+    return { position: normalizedPosition, department: normalizedDepartment };
+  } catch (error) {
+    console.error("Error fetching user role:", error);
+    return null;
+  }
 }

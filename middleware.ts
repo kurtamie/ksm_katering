@@ -4,17 +4,59 @@ import type { NextRequest } from "next/server";
 const PROTECTED_PREFIXES = ["/admin", "/dashboard"];
 const AUTH_PREFIX = "/auth";
 
-const ROUTE_ACCESS = {
-  sales: ["/admin/order", "/admin/calendar", "/admin/menu"],
-  driver: ["/admin/order", "/admin/calendar", "/admin/menu"],
-  manager: [
-    "/admin/user",
-    "/admin/order",
-    "/admin/calendar",
-    "/admin/customer",
-    "/admin/dish",
-    "/admin/menu",
-  ],
+const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/dish", "/admin/menu"];
+const DEFAULT_ALLOWED_ROUTES = ["/admin/order"];
+const ROLE_ROUTE_ACCESS = [
+  {
+    position: "admin_finance",
+    department: "finance",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "admin_operational",
+    department: "operational",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "supervisor",
+    department: "operational",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "prasmanan",
+    department: "operational",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "kitchen",
+    department: "operational",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "sales",
+    department: "marketing",
+    routes: [...BASE_ROUTES, "/admin/customer"],
+  },
+  {
+    position: "driver",
+    department: "delivery",
+    routes: BASE_ROUTES,
+  },
+  {
+    position: "manager",
+    department: "manager",
+    routes: [...BASE_ROUTES, "/admin/graph", "/admin/user"],
+  },
+];
+
+const getAllowedRoutes = (position?: string, department?: string) => {
+  if (!position || !department) return DEFAULT_ALLOWED_ROUTES;
+
+  const match = ROLE_ROUTE_ACCESS.find(
+    (rule) => rule.position === position && rule.department === department
+  );
+
+  return match?.routes ?? DEFAULT_ALLOWED_ROUTES;
 };
 
 export async function middleware(request: NextRequest) {
@@ -51,23 +93,22 @@ export async function middleware(request: NextRequest) {
   if (isProtectedRoute) {
     try {
       const userPosition = request.cookies.get("user_position")?.value;
+      const userDepartment = request.cookies.get("user_department")?.value;
+      const normalizedPosition = userPosition?.toLowerCase();
+      const normalizedDepartment = userDepartment?.toLowerCase();
+      const allowedRoutes = getAllowedRoutes(
+        normalizedPosition,
+        normalizedDepartment
+      );
+      const hasAccess = allowedRoutes.some((route) =>
+        pathname.startsWith(route)
+      );
 
-      if (userPosition && userPosition !== "manager") {
-        const allowedRoutes =
-          ROUTE_ACCESS[userPosition as keyof typeof ROUTE_ACCESS];
-
-        if (allowedRoutes) {
-          const hasAccess = allowedRoutes.some((route) =>
-            pathname.startsWith(route)
-          );
-
-          if (!hasAccess) {
-            return redirectTo("/admin/order");
-          }
-        }
+      if (!hasAccess) {
+        return redirectTo("/admin/order");
       }
     } catch (error) {
-      console.error("Error checking user position:", error);
+      console.error("Error checking user role:", error);
     }
   }
 
