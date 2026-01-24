@@ -66,7 +66,35 @@ const buildRelationPayload = (relations: Record<string, number[]>) => {
   return payload
 }
 
-export async function updateOrderStep(documentId: string, step: string): Promise<UpdateOrderStepResult> {
+const uploadImage = async (file: File): Promise<number | null> => {
+  try {
+    const formData = new FormData()
+    formData.append('files', file)
+
+    const url = new URL('/api/upload', apiBaseUrl)
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`)
+    }
+
+    const result = await response.json()
+    const uploadedFile = Array.isArray(result) ? result[0] : result
+    return uploadedFile?.id ?? null
+  } catch (error) {
+    console.error('Image upload error:', error)
+    return null
+  }
+}
+
+export async function updateOrderStep(
+  documentId: string, 
+  step: string,
+  imageFile?: File
+): Promise<UpdateOrderStepResult> {
   const identifier = documentId?.trim()
 
   if (!identifier) {
@@ -77,18 +105,32 @@ export async function updateOrderStep(documentId: string, step: string): Promise
     const relations = await fetchOrderRelations(identifier)
     const relationPayload = buildRelationPayload(relations)
 
+    let imageId: number | null = null
+    if (imageFile && step === 'success') {
+      imageId = await uploadImage(imageFile)
+      if (!imageId) {
+        return { success: false, error: 'Gagal mengupload gambar' }
+      }
+    }
+
     const url = new URL(`/api/orders/${identifier}`, apiBaseUrl)
+    const payload: any = {
+      data: {
+        step,
+        ...relationPayload,
+      },
+    }
+
+    if (imageId) {
+      payload.data.image_receive = imageId
+    }
+
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        data: {
-          step,
-          ...relationPayload,
-        },
-      }),
+      body: JSON.stringify(payload),
     })
 
     if (!response.ok) {

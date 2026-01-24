@@ -1,7 +1,6 @@
 import { getStrapiURL } from '@/lib/utils'
 
 type CustomerPayload = {
-  sales_name: string | null
   gender: string | null
   name: string | null
   company_name: string | null
@@ -10,6 +9,7 @@ type CustomerPayload = {
   address: string | null
   latitude: string | null
   longitude: string | null
+  staff_id?: number | null
   user_id: number | null
   orders: number[] | null
 }
@@ -26,8 +26,14 @@ export async function createCustomer(payload: CustomerPayload): Promise<Customer
     const url = new URL('/api/customers', apiBaseUrl)
     const data: Record<string, unknown> = { ...payload }
 
+    if (data.sales_name !== undefined) {
+      delete data.sales_name
+    }
     if (data.user_id === null) {
       delete data.user_id
+    }
+    if (data.staff_id === null) {
+      delete data.staff_id
     }
     if (data.orders === null) {
       delete data.orders

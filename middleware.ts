@@ -15,7 +15,7 @@ const ROLE_ROUTE_ACCESS = [
   {
     position: "admin_operational",
     department: "operational",
-    routes: BASE_ROUTES,
+    routes: [...BASE_ROUTES, "/admin/customer"],
   },
   {
     position: "supervisor",
@@ -45,9 +45,28 @@ const ROLE_ROUTE_ACCESS = [
   {
     position: "manager",
     department: "manager",
-    routes: [...BASE_ROUTES, "/admin/graph", "/admin/user"],
+    routes: [...BASE_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
+  },
+  {
+    position: "developer",
+    department: "developer",
+    routes: [...BASE_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
   },
 ];
+
+const ORDER_ADD_ALLOWED = [
+  { position: "admin_operational", department: "operational" },
+  { position: "sales", department: "marketing" },
+  { position: "manager", department: "manager" },
+  { position: "developer", department: "developer" },
+];
+
+const MENU_ADD_ALLOWED = [
+  { position: "admin_operational", department: "operational" },
+  { position: "sales", department: "marketing" },
+  { position: "manager", department: "manager" },
+  { position: "developer", department: "developer" },
+]
 
 const getAllowedRoutes = (position?: string, department?: string) => {
   if (!position || !department) return DEFAULT_ALLOWED_ROUTES;
@@ -106,6 +125,30 @@ export async function middleware(request: NextRequest) {
 
       if (!hasAccess) {
         return redirectTo("/admin/order");
+      }
+
+      if (pathname.startsWith("/admin/order/add")) {
+        const canAdd = ORDER_ADD_ALLOWED.some(
+          (rule) =>
+            rule.position === normalizedPosition &&
+            rule.department === normalizedDepartment
+        );
+
+        if (!canAdd) {
+          return redirectTo("/admin/order");
+        }
+      }
+
+      if (pathname.startsWith("/admin/menu/add")) {
+        const canAdd = MENU_ADD_ALLOWED.some(
+          (rule) =>
+            rule.position === normalizedPosition &&
+            rule.department === normalizedDepartment
+        );
+
+        if (!canAdd) {
+          return redirectTo("/admin/order");
+        }
       }
     } catch (error) {
       console.error("Error checking user role:", error);

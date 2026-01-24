@@ -38,6 +38,7 @@ export type OrderForEdit = {
   pudding: string
   snack: string
   deliveryDate: string
+  staffDriverId: string
   coordinates: Coordinate
 }
 
@@ -68,6 +69,7 @@ export type UpdateOrderPayload = {
     delivery_address: string
     latitude: string
     longitude: string
+    staff_driver_id?: number | null
   }
   orderDetailData: {
     qty: string
@@ -145,6 +147,7 @@ export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdi
   url.searchParams.set('populate[package_id][populate]', '*')
   url.searchParams.set('populate[order_details][populate]', '*')
   url.searchParams.set('populate[order_menus][populate]', '*')
+  url.searchParams.set('populate[staff_driver_id][populate]', '*')
 
   const response = await fetch(url, {
     method: 'GET',
@@ -170,6 +173,9 @@ export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdi
 
   const menuData = getRelationData(attributes.order_menus)
   const menuAttrs = getAttributes(menuData[0])
+
+  const driverData = getRelationData(attributes.staff_driver_id)
+  const driverAttrs = getAttributes(driverData[0])
 
   const deliveryDate =
     attributes.delivery_date ||
@@ -216,6 +222,7 @@ export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdi
     pudding: toStringValue(menuAttrs.pudding ?? ''),
     snack: toStringValue(menuAttrs.snack ?? ''),
     deliveryDate: toStringValue(deliveryDate),
+    staffDriverId: toStringValue(driverData[0]?.id ?? driverAttrs?.id ?? ''),
     coordinates: coords,
   }
 }

@@ -16,7 +16,8 @@ import { CalendarIcon } from "lucide-react"
 import MapCoordinatePicker from "@/components/custom/Coordinate-input"
 import { Textarea } from "@/components/ui/textarea"
 import React, { useEffect, useState } from "react"
-import { createOrder, fetchCustomers, fetchNextOrderNumber, fetchPackages } from "@/features/admin/create-order"
+import { createOrder, fetchCustomers, fetchNextOrderNumber, fetchPackages, getCurrentUser } from "@/features/admin/create-order"
+import { fetchStaffs, type Staff } from "@/features/admin/get-staff"
 import { fetchOrderMenuRecommendations, type MenuRecommendations } from "@/features/admin/get-order-menu"
 import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner"
@@ -27,6 +28,8 @@ type CustomerOption = {
   id: number
   name: string
   phone_no: string
+  staff_id?: number | null
+  staff_document_id?: string | null
 }
 
 type PackageOption = {
@@ -38,6 +41,7 @@ type PackageOption = {
 
 type FormValues = {
   orderNo: string
+  staffId: string
   customerId: string
   customerType: string
   executorTeam: string
@@ -69,7 +73,36 @@ type FormValues = {
   box: string
   pudding: string
   snack: string
-  driver: string
+}
+
+type CurrentUser = {
+  id: number
+  staff?: {
+    id: number
+    documentId?: string
+    position?: string
+    department?: string
+  }
+}
+
+const normalizeRoleValue = (value: string | null | undefined) =>
+  value?.toLowerCase() ?? ""
+
+const canAddOrder = (position: string | null, department: string | null) => {
+  const normalizedPosition = normalizeRoleValue(position)
+  const normalizedDepartment = normalizeRoleValue(department)
+
+  const isAdminOperational =
+    normalizedPosition === "admin_operational" &&
+    normalizedDepartment === "operational"
+  const isSalesMarketing =
+    normalizedPosition === "sales" && normalizedDepartment === "marketing"
+  const isManager =
+    normalizedPosition === "manager" && normalizedDepartment === "manager"
+  const isDeveloper =
+    normalizedPosition === "developer" && normalizedDepartment === "developer"
+
+  return isAdminOperational || isSalesMarketing || isManager || isDeveloper
 }
 
 const DEFAULT_COORDINATE: Coordinate = { lat: 1.134118, lng: 104.027631 }
@@ -106,15 +139,34 @@ const normalizePriceToThousands = (value: string | number | null | undefined) =>
   return Number.isInteger(inThousands) ? String(inThousands) : String(inThousands)
 }
 
+const normalizeId = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  const raw = String(value).trim()
+  if (!raw) return null
+  const numeric = Number(raw)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+const normalizeDocumentId = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null
+  const raw = String(value).trim()
+  return raw.length > 0 ? raw : null
+}
+
 export default function Page() {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [date, setDate] = React.useState<Date>(new Date())
   const [month, setMonth] = React.useState(new Date())
   const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>([])
   const [packageOptions, setPackageOptions] = useState<PackageOption[]>([])
   const [productOptions, setProductOptions] = useState<string[]>([])
-  const [optionsLoading, setOptionsLoading] = useState(false)
+  const [salesStaffOptions, setSalesStaffOptions] = useState<Staff[]>([])
+  const [customersLoading, setCustomersLoading] = useState(false)
+  const [packagesLoading, setPackagesLoading] = useState(false)
+  const [staffOptionsLoading, setStaffOptionsLoading] = useState(false)
   const [menuRecommendations, setMenuRecommendations] = useState<MenuRecommendations>({
     rice: "-",
     mainDish: "-",
@@ -132,6 +184,7 @@ export default function Page() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formValues, setFormValues] = useState<FormValues>({
     orderNo: "",
+    staffId: "",
     customerId: "",
     customerType: "",
     executorTeam: "",
@@ -163,7 +216,6 @@ export default function Page() {
     box: "",
     pudding: "",
     snack: "",
-    driver: "",
   })
   const suppliers = ["Dapur KCI", "Bu Farida", "Bu Anti"]
   const defaultProducts = [
@@ -259,7 +311,28 @@ export default function Page() {
     "00:00:00",
     "00:30:00",
   ]
-  const drivers = ["Driver KSM 1", "Driver KSM 2", "Driver KSM 3"]
+  useEffect(() => {
+    let isMounted = true
+
+    const checkAccess = async () => {
+      const user = await getCurrentUser()
+      if (!isMounted) return
+      setCurrentUser(user)
+      const allowed = canAddOrder(user?.staff?.position ?? null, user?.staff?.department ?? null)
+
+      setHasAccess(allowed)
+      if (!allowed) {
+        toast.error("Anda tidak memiliki akses untuk menambah pesanan")
+        router.replace("/admin/order")
+      }
+    }
+
+    checkAccess()
+
+    return () => {
+      isMounted = false
+    }
+  }, [router])
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     if (selectedDate) {
@@ -293,28 +366,104 @@ export default function Page() {
     return Array.from(uniqueProducts.values())
   }
 
+  const normalizedPosition = normalizeRoleValue(currentUser?.staff?.position ?? null)
+  const normalizedDepartment = normalizeRoleValue(currentUser?.staff?.department ?? null)
+  const isAdminOperational =
+    normalizedPosition === "admin_operational" && normalizedDepartment === "operational"
+
   const normalizedProduct = formValues.product.trim().toLowerCase()
   const filteredPackageOptions = normalizedProduct
     ? packageOptions.filter((pkg) => pkg.product?.trim().toLowerCase() === normalizedProduct)
     : packageOptions
 
+  const selectedStaffId = normalizeId(formValues.staffId)
+  const currentStaffId = normalizeId(currentUser?.staff?.id ?? null)
+  const activeStaffId = isAdminOperational ? selectedStaffId : currentStaffId
+  const selectedStaffDocumentId = isAdminOperational && selectedStaffId
+    ? normalizeDocumentId(
+      salesStaffOptions.find((staff) => normalizeId(staff.id) === selectedStaffId)?.documentId ?? null
+    )
+    : null
+  const currentStaffDocumentId = normalizeDocumentId(currentUser?.staff?.documentId ?? null)
+  const activeStaffDocumentId = isAdminOperational ? selectedStaffDocumentId : currentStaffDocumentId
+  const filteredCustomerOptions = activeStaffId || activeStaffDocumentId
+    ? customerOptions.filter((customer) => {
+      const customerStaffId = normalizeId(customer.staff_id)
+      const customerStaffDocumentId = normalizeDocumentId(customer.staff_document_id ?? null)
+      return (
+        (activeStaffId && customerStaffId === activeStaffId) ||
+        (activeStaffDocumentId && customerStaffDocumentId === activeStaffDocumentId)
+      )
+    })
+    : []
+
   useEffect(() => {
-    const loadOptions = async () => {
-      setOptionsLoading(true)
+    let isMounted = true
+
+    const loadCustomers = async () => {
+      setCustomersLoading(true)
       try {
-        const [customers, packages] = await Promise.all([fetchCustomers(), fetchPackages()])
+        const customers = await fetchCustomers()
+        if (!isMounted) return
         setCustomerOptions(customers)
-        setPackageOptions(packages)
-        setProductOptions(deriveProductsFromPackages(packages))
       } catch (error) {
-        toast.error("Gagal memuat data customer atau paket")
+        if (!isMounted) return
+        toast.error("Gagal memuat data customer")
       } finally {
-        setOptionsLoading(false)
+        if (isMounted) {
+          setCustomersLoading(false)
+        }
       }
     }
 
-    loadOptions()
+    const loadPackages = async () => {
+      setPackagesLoading(true)
+      try {
+        const packages = await fetchPackages()
+        if (!isMounted) return
+        setPackageOptions(packages)
+        setProductOptions(deriveProductsFromPackages(packages))
+      } catch (error) {
+        if (!isMounted) return
+        toast.error("Gagal memuat data paket")
+      } finally {
+        if (isMounted) {
+          setPackagesLoading(false)
+        }
+      }
+    }
+
+    loadCustomers()
+    loadPackages()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
+
+  useEffect(() => {
+    if (!isAdminOperational) {
+      setSalesStaffOptions([])
+      return
+    }
+
+    const loadSalesStaffs = async () => {
+      setStaffOptionsLoading(true)
+      try {
+        const staffs = await fetchStaffs()
+        const salesStaffs = staffs.filter((staff) => {
+          const position = normalizeRoleValue(staff.position)
+          const department = normalizeRoleValue(staff.department)
+          return position === "sales" && department === "marketing" && staff.id !== null
+        })
+        setSalesStaffOptions(salesStaffs)
+      } finally {
+        setStaffOptionsLoading(false)
+      }
+    }
+
+    loadSalesStaffs()
+  }, [isAdminOperational])
 
   useEffect(() => {
     const loadRecommendations = async () => {
@@ -369,6 +518,17 @@ export default function Page() {
   }, [filteredPackageOptions, formValues.packageId])
 
   useEffect(() => {
+    if (!formValues.customerId) return
+
+    const isValid = filteredCustomerOptions.some(
+      (customer) => customer.id.toString() === formValues.customerId
+    )
+    if (!isValid) {
+      setFormValues((prev) => ({ ...prev, customerId: "" }))
+    }
+  }, [filteredCustomerOptions, formValues.customerId])
+
+  useEffect(() => {
     if (!formValues.packageId) {
       setFormValues((prev) => (prev.sellingPrice === "" ? prev : { ...prev, sellingPrice: "" }))
       return
@@ -417,6 +577,7 @@ export default function Page() {
 
     const requiredMap: Array<[keyof FormValues, string]> = [
       ["orderNo", "Nomor Order"],
+      ["staffId", "Staff Sales"],
       ["customerId", "Customer"],
       ["customerType", "Golongan Customer"],
       ["executorTeam", "Tim Eksekusi"],
@@ -448,8 +609,10 @@ export default function Page() {
       ["box", "Kotak"],
       ["pudding", "Puding"],
       ["snack", "Snack"],
-      ["driver", "Driver"]
     ]
+    if (!isAdminOperational) {
+      requiredMap.splice(1, 1)
+    }
 
     const missingFields = requiredMap
       .filter(([key]) => !String(formValues[key] ?? "").trim())
@@ -462,9 +625,17 @@ export default function Page() {
 
     const customerIdNumber = Number(formValues.customerId)
     const packageIdNumber = Number(formValues.packageId)
+    const staffIdNumber = isAdminOperational
+      ? normalizeId(formValues.staffId)
+      : normalizeId(currentUser?.staff?.id ?? null)
 
     if (Number.isNaN(customerIdNumber) || Number.isNaN(packageIdNumber)) {
       toast.error("Customer atau paket tidak valid")
+      return
+    }
+
+    if (!staffIdNumber) {
+      toast.error(isAdminOperational ? "Staff sales tidak valid" : "Staff tidak valid")
       return
     }
 
@@ -491,7 +662,6 @@ export default function Page() {
           delivery_address: formValues.recipientAddress,
           latitude: coordinates.lat.toString(),
           longitude: coordinates.lng.toString(),
-          driver: formValues.driver,
         },
         orderDetailData: {
           qty: formValues.qty,
@@ -518,7 +688,7 @@ export default function Page() {
         },
       }
 
-      const result = await createOrder(payload)
+      const result = await createOrder(payload, { staffId: staffIdNumber })
 
       if (!result.success) {
         throw new Error(result.error || "Gagal menyimpan pesanan")
@@ -532,6 +702,10 @@ export default function Page() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (hasAccess !== true) {
+    return null
   }
   return (
     <div className="w-full bg-[#F5F5F5]">
@@ -568,29 +742,81 @@ export default function Page() {
                 readOnly
               />
             </div>
-              <div className="grid w-full max-w-full items-center gap-1.5">
-                <Label htmlFor="customer_id">Customer</Label>
-                <Select
-                  value={formValues.customerId}
-                  onValueChange={(value) => updateField("customerId", value)}
-                  disabled={optionsLoading}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={optionsLoading ? "Memuat..." : "Pilih Customer"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Customer</SelectLabel>
-                      {customerOptions.map((customer) => (
+            <div className="grid w-full max-w-full items-center gap-1.5">
+              <Label htmlFor="customer_id">Customer *</Label>
+              <Select
+                value={formValues.customerId}
+                onValueChange={(value) => updateField("customerId", value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={
+                      customersLoading
+                        ? "Memuat..."
+                        : isAdminOperational && !formValues.staffId
+                          ? "Pilih staff sales dulu"
+                          : "Pilih Customer"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent position="popper" sideOffset={5}>
+                  <SelectGroup>
+                    <SelectLabel>Customer</SelectLabel>
+                    {customersLoading ? (
+                      <SelectItem value="loading" disabled>
+                        Memuat customer...
+                      </SelectItem>
+                    ) : isAdminOperational && !formValues.staffId ? (
+                      <SelectItem value="select-staff" disabled>
+                        Pilih staff sales dulu
+                      </SelectItem>
+                    ) : filteredCustomerOptions.length === 0 ? (
+                      <SelectItem value="empty" disabled>
+                        Belum ada customer
+                      </SelectItem>
+                    ) : (
+                      filteredCustomerOptions.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id.toString()}>
                           {`${customer.phone_no || "-"} - ${customer.name || "Tanpa nama"}`}
                         </SelectItem>
-                      ))}
+                      ))
+                    )}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            </div>
+            
+            {isAdminOperational ? (
+              <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                <Label htmlFor="staff_id">Staff Sales *</Label>
+                <Select
+                  value={formValues.staffId}
+                  onValueChange={(value) => updateField("staffId", value)}
+                  disabled={staffOptionsLoading}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={staffOptionsLoading ? "Memuat..." : "Pilih staff sales"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Staff Sales</SelectLabel>
+                      {salesStaffOptions.length === 0 ? (
+                        <SelectItem value="-" disabled>
+                          Belum ada staff sales
+                        </SelectItem>
+                      ) : (
+                        salesStaffOptions.map((staff) => (
+                          <SelectItem key={staff.id ?? staff.documentId ?? staff.name} value={String(staff.id)}>
+                            {staff.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            ) : null}
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="created_by">Bulan</Label>
               <Input type="text" name="created_by" id="created_by" value={currentMonthLabel} readOnly />
@@ -681,12 +907,12 @@ export default function Page() {
               <Select
                 value={formValues.packageId}
                 onValueChange={(value) => updateField("packageId", value)}
-                disabled={optionsLoading}
+                disabled={packagesLoading}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue
                     placeholder={
-                      optionsLoading
+                      packagesLoading
                         ? "Memuat..."
                         : formValues.product
                           ? "Pilih Paket"
@@ -1101,23 +1327,6 @@ export default function Page() {
               <MapCoordinatePicker value={coordinates} onChange={setCoordinates} />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="arrive_time">Driver</Label>
-              <Select value={formValues.driver} onValueChange={(value) => updateField("driver", value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Tentukan driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Driver</SelectLabel>
-                    {drivers.map((driver) => (
-                      <SelectItem key={driver} value={driver}>
-                        {driver}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
             <Button className="w-full md:w-auto bg-gray-400 text-white" onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting ? "Menyimpan..." : "SIMPAN"}
             </Button>
@@ -1125,5 +1334,6 @@ export default function Page() {
         </div>
       </div>
     </div>
+  </div>
   )
 }

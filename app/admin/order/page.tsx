@@ -41,6 +41,88 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+type OrderPermissions = {
+  canAdd: boolean
+  canEdit: boolean
+  canDelete: boolean
+  canExport: boolean
+  canPrint: boolean
+}
+
+const normalizeRoleValue = (value: string | null | undefined) =>
+  value?.toLowerCase() ?? ""
+
+const deriveOrderPermissions = (
+  position: string | null,
+  department: string | null
+): OrderPermissions => {
+  const normalizedPosition = normalizeRoleValue(position)
+  const normalizedDepartment = normalizeRoleValue(department)
+  const isAdminOperational =
+    normalizedPosition === "admin_operational" &&
+    normalizedDepartment === "operational"
+  const isAdminFinance =
+    normalizedPosition === "admin_finance" && normalizedDepartment === "finance"
+  const isSupervisor =
+    normalizedPosition === "supervisor" && normalizedDepartment === "operational"
+  const isPrasmanan =
+    normalizedPosition === "prasmanan" && normalizedDepartment === "operational"
+  const isKitchen =
+    normalizedPosition === "kitchen" && normalizedDepartment === "operational"
+  const isSalesMarketing =
+    normalizedPosition === "sales" && normalizedDepartment === "marketing"
+  const isDriver =
+    normalizedPosition === "driver" && normalizedDepartment === "delivery"
+  const isManager =
+    normalizedPosition === "manager" && normalizedDepartment === "manager"
+  const isDeveloper =
+    normalizedPosition === "developer" && normalizedDepartment === "developer"
+
+  const canAdd =
+    isAdminOperational || isSalesMarketing || isManager || isDeveloper
+  const canEdit =
+    isAdminOperational ||
+    isSupervisor ||
+    isSalesMarketing ||
+    isManager ||
+    isDeveloper
+  const canDelete =
+    isAdminOperational ||
+    isSupervisor ||
+    isSalesMarketing ||
+    isManager ||
+    isDeveloper
+  const canExport =
+    isAdminOperational ||
+    isAdminFinance ||
+    isManager ||
+    isDeveloper
+  const canPrint =
+    isAdminOperational ||
+    isAdminFinance ||
+    isSupervisor ||
+    isManager ||
+    isDeveloper
+
+  if (isPrasmanan || isKitchen || isDriver) {
+    return {
+      canAdd: false,
+      canEdit: false,
+      canDelete: false,
+      canExport: false,
+      canPrint: false,
+    }
+  }
+
+  return {
+    canAdd,
+    canEdit,
+    canDelete,
+    canExport,
+    canPrint,
+  }
+}
+
 function formatDateRange(dateRange: DateRange | undefined) {
   if (!dateRange?.from) {
     return ""
@@ -61,6 +143,17 @@ function formatDateRange(dateRange: DateRange | undefined) {
   return `${formatSingleDate(dateRange.from)} - ${formatSingleDate(dateRange.to)}`
 }
 
+const getGoogleMapsUrl = (latitude: string, longitude: string) => {
+  const lat = Number(latitude)
+  const lng = Number(longitude)
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null
+  }
+
+  return `https://www.google.com/maps?q=${lat},${lng}`
+}
+
 export default function Page() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -77,6 +170,7 @@ export default function Page() {
   const [userPosition, setUserPosition] = React.useState<string | null>(null)
   const [userDepartment, setUserDepartment] = React.useState<string | null>(null)
   const [currentStaffId, setCurrentStaffId] = React.useState<number | null>(null)
+  const [currentStaffDocumentId, setCurrentStaffDocumentId] = React.useState<string | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
@@ -89,8 +183,9 @@ export default function Page() {
       const user = await getCurrentUser()
       if (isMounted) {
         setCurrentStaffId(user?.staff?.id ?? null)
-        setUserPosition(user?.staff?.position ?? null)
-        setUserDepartment(user?.staff?.department ?? null)
+        setCurrentStaffDocumentId(user?.staff?.documentId ?? null)
+        setUserPosition(normalizeRoleValue(user?.staff?.position) || null)
+        setUserDepartment(normalizeRoleValue(user?.staff?.department) || null)
       }
     }
 
@@ -135,9 +230,15 @@ export default function Page() {
     }
   }, [documentIdParam, orders])
 
+  const permissions = React.useMemo(
+    () => deriveOrderPermissions(userPosition, userDepartment),
+    [userPosition, userDepartment]
+  )
+
   const visibleOrders = React.useMemo(() => {
     const isSalesMarketing = userPosition === "sales" && userDepartment === "marketing"
-    if (!isSalesMarketing) {
+    const isDriver = userPosition === "driver" && userDepartment === "delivery"
+    if (!isSalesMarketing && !isDriver) {
       return orders
     }
 
@@ -145,8 +246,16 @@ export default function Page() {
       return []
     }
 
-    return orders.filter((order) => order.staff_id === currentStaffId)
-  }, [orders, userPosition, currentStaffId])
+    if (isSalesMarketing) {
+      return orders.filter((order) => order.staff_id === currentStaffId)
+    }
+
+    return orders.filter((order) => {
+      if (currentStaffId && order.staff_driver_staff_id === currentStaffId) return true
+      if (currentStaffDocumentId && order.staff_driver_document_id === currentStaffDocumentId) return true
+      return false
+    })
+  }, [orders, userPosition, userDepartment, currentStaffId, currentStaffDocumentId])
 
   const handleRefreshOrders = async () => {
     setIsRefreshing(true)
@@ -244,13 +353,19 @@ export default function Page() {
             </div>
             <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:justify-end">
               <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
-                <Link href={"/admin/order/add"}>
+                {permissions.canAdd && (
+                  <Link href={"/admin/order/add"}>
+                    <Button className="bg-gray-400 cursor-pointer">
+                      <FaPlus />
+                      Tambah Pesanan
+                    </Button>
+                  </Link>
+                )}
+                {permissions.canExport && (
                   <Button className="bg-gray-400 cursor-pointer">
-                    <FaPlus />
-                    Tambah Pesanan
+                    Ekspor Laporan Pesanan
                   </Button>
-                </Link>
-                <Button className="bg-gray-400 cursor-pointer">Ekspor Laporan Pesanan</Button>
+                )}
               </div>
               <div className="hidden h-10 w-px bg-gray-400 md:block" />
               <div className="flex flex-1 items-center gap-2 md:flex-none md:min-w-[340px]">
@@ -317,52 +432,58 @@ export default function Page() {
                   {selectedOrder?.order_no}
                 </DrawerTitle>
                 <div className="flex flex-wrap items-center gap-2">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="cursor-pointer h-9 whitespace-nowrap"
-                        disabled={!selectedOrder || isDeleting}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Hapus
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Hapus pesanan?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Pesanan {selectedOrder?.order_no ?? "-"} akan dihapus. Tindakan ini tidak bisa dibatalkan.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteOrder} disabled={isDeleting}>
-                          {isDeleting ? "Menghapus..." : "Ya, hapus"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="cursor-pointer h-9 whitespace-nowrap"
-                    onClick={handleEditOrder}
-                    disabled={!selectedOrder}
-                  >
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="cursor-pointer h-9 whitespace-nowrap"
-                    onClick={handlePrintOrder}
-                    disabled={!selectedOrder || isGeneratingPdf}
-                  >
-                    <Printer className="mr-2 h-4 w-4" />
-                    {isGeneratingPdf ? "Mencetak..." : "Cetak Pesanan"}
-                  </Button>
+                  {permissions.canDelete && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="cursor-pointer h-9 whitespace-nowrap"
+                          disabled={!selectedOrder || isDeleting}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Hapus
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Hapus pesanan?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Pesanan {selectedOrder?.order_no ?? "-"} akan dihapus. Tindakan ini tidak bisa dibatalkan.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDeleteOrder} disabled={isDeleting}>
+                            {isDeleting ? "Menghapus..." : "Ya, hapus"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  {permissions.canEdit && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="cursor-pointer h-9 whitespace-nowrap"
+                      onClick={handleEditOrder}
+                      disabled={!selectedOrder}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  {permissions.canPrint && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="cursor-pointer h-9 whitespace-nowrap"
+                      onClick={handlePrintOrder}
+                      disabled={!selectedOrder || isGeneratingPdf}
+                    >
+                      <Printer className="mr-2 h-4 w-4" />
+                      {isGeneratingPdf ? "Mencetak..." : "Cetak Pesanan"}
+                    </Button>
+                  )}
                   <DrawerClose asChild>
                     <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail pesanan">
                       <X className="h-5 w-5" />
@@ -382,6 +503,28 @@ export default function Page() {
                     <DetailRow label="Paket" value={selectedOrder.product_package} />
                     <DetailRow label="Jumlah" value={selectedOrder.total_qty} />
                     <DetailRow label="Alamat" value={selectedOrder.address} />
+                    <DetailRow
+                      label="Lokasi"
+                      value={
+                        (() => {
+                          const locationUrl = getGoogleMapsUrl(
+                            selectedOrder.latitude,
+                            selectedOrder.longitude
+                          )
+                          if (!locationUrl) return "-"
+                          return (
+                            <a
+                              href={locationUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-600 underline"
+                            >
+                              Lihat lokasi
+                            </a>
+                          )
+                        })()
+                      }
+                    />
                     <DetailRow label="Tanggal Order" value={selectedOrder.order_date} />
                     <DetailRow label="Status Pengiriman" value={selectedOrder.delivery_status} />
                     <DetailRow label="Jam Sampai" value={selectedOrder.delivery_time} />
@@ -407,7 +550,7 @@ export default function Page() {
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="space-y-1">
       <div className="text-sm text-gray-600">{label}</div>

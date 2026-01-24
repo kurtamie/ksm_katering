@@ -37,6 +37,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+export const dynamic = "force-dynamic"
+
 const getDisplayName = (customer: Customer) => {
   if (customer.name !== "-") return customer.name
   if (customer.company_name !== "-") return customer.company_name
@@ -107,6 +109,9 @@ export default function page() {
       setIsRefreshing(false)
     }
   }
+
+  const editTarget = selectedCustomer?.documentId ?? (selectedCustomer?.id ? String(selectedCustomer.id) : "")
+  const canEdit = Boolean(editTarget)
 
   return (
     <div className='bg-white w-full mx-auto'>
@@ -253,13 +258,26 @@ export default function page() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="cursor-pointer h-9 whitespace-nowrap"
-                  >
-                    Edit
-                  </Button>
+                  {canEdit ? (
+                    <Link href={`/admin/customer/${editTarget}/edit`}>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="cursor-pointer h-9 whitespace-nowrap"
+                      >
+                        Edit
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="cursor-pointer h-9 whitespace-nowrap"
+                      disabled
+                    >
+                      Edit
+                    </Button>
+                  )}
                   <DrawerClose asChild>
                     <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail customer">
                       <X className="h-5 w-5" />

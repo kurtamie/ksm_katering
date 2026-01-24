@@ -66,7 +66,7 @@ export function LoginForm({
           </div>
           <ZodErrors error={formState?.zodErrors?.password} />
         </div>
-        <SubmitButton text="Masuk" loadingText="Loading" className="cursor-pointer w-full bg-gray-300 text-black hover:bg-gray-600"/>
+        <SubmitButton text="Masuk" loadingText="Loading" className="cursor-pointer w-full bg-[#8D0000] text-white hover:bg-red-700"/>
         <StrapiErrors error={formState?.strapiErrors} />
       </div>
       <div className="text-center text-sm text-muted-foreground">
@@ -75,7 +75,7 @@ export function LoginForm({
           Daftar
         </Link>
       </div>
-      <Button className="cursor-pointer w-full border border-gray-300 bg-white text-black hover:bg-[#ffe9ea]">Verifikasi Nomor Telepon</Button>
+      <Button className="cursor-pointer w-full border border-red-900 bg-white text-red-900 hover:bg-red-700 hover:text-white">Verifikasi Nomor Telepon</Button>
     </form>
   )
 }

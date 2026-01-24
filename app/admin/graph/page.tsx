@@ -105,27 +105,113 @@ function page() {
           </Select>
 
           <div className='mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
-            <div className='bg-gray-300 p-4 gap-6 flex flex-col rounded-xl'>
+            <div className='bg-white border border-gray-300 p-4 gap-6 flex flex-col rounded-xl'>
               <h1 className='text-sm'>Pengguna Aktif</h1>
               <h1 className='text-lg font-semibold'>17</h1>
             </div>
-            <div className='bg-gray-300 p-4 gap-6 flex flex-col rounded-xl'>
+            <div className='bg-white border border-gray-300 p-4 gap-6 flex flex-col rounded-xl'>
               <h1 className='text-sm'>Total Pesanan Bulan Ini</h1>
               <h1 className='text-lg font-semibold'>200</h1>
             </div>
-            <div className='bg-gray-300 p-4 gap-6 flex flex-col rounded-xl'>
+            <div className='bg-white border border-gray-300 p-4 gap-6 flex flex-col rounded-xl'>
               <h1 className='text-sm'>Top Layanan Bulan Ini</h1>
               <h1 className='text-lg font-semibold'>Nasi Kotak</h1>
             </div>
-            <div className='bg-gray-300 p-4 gap-6 flex flex-col rounded-xl'>
+            <div className='bg-white border border-gray-300 p-4 gap-6 flex flex-col rounded-xl'>
               <h1 className='text-sm'>Top Menu Masakan Bulan Ini</h1>
               <h1 className='text-lg font-semibold'>Nasi Kotak Paket A</h1>
             </div>
           </div>
 
           <div className='mt-4'>
-            <div className='bg-gray-300 p-4 gap-4 rounded-xl flex flex-col'>
-              <h1 className='text-lg'>Pesanan Masuk</h1>
+            <div className='bg-white border border-gray-300 p-4 gap-4 rounded-xl flex flex-col'>
+              <h1 className='text-lg'>Pesanan Bulan Ini</h1>
+              <div className='grid grid-cols-2 gap-4 mt-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9'>
+                {chartLegendItems.map((item) => (
+                  <div key={item.key} className='flex gap-4 items-center justify-center'>
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: chartConfig[item.key].color }}
+                    />
+                    <h1 className='text-sm text-gray-600'>{item.label}</h1>
+                  </div>
+                ))}
+              </div>
+              <ChartContainer config={chartConfig} className="mt-6 h-[320px] w-full">
+                <BarChart data={chartData} margin={{ left: 8, right: 8 }}>
+                  <CartesianGrid vertical={false} />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                  <Bar dataKey="nasiKotak" stackId="total" fill="var(--color-nasiKotak)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="prasmanan" stackId="total" fill="var(--color-prasmanan)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="snack" stackId="total" fill="var(--color-snack)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="bento" stackId="total" fill="var(--color-bento)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="custom" stackId="total" fill="var(--color-custom)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="aqiqah" stackId="total" fill="var(--color-aqiqah)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="tumpeng" stackId="total" fill="var(--color-tumpeng)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="weddingCatering" stackId="total" fill="var(--color-weddingCatering)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="kateringKorporat" stackId="total" fill="var(--color-kateringKorporat)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            </div>
+          </div>
+
+          <div className='mt-4'>
+            <div className='bg-white border border-gray-300 p-4 gap-4 rounded-xl flex flex-col'>
+              <h1 className='text-lg'>Pendapatan per Tipe Pelanggan</h1>
+              <div className='grid grid-cols-2 gap-4 mt-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9'>
+                {chartLegendItems.map((item) => (
+                  <div key={item.key} className='flex gap-4 items-center justify-center'>
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: chartConfig[item.key].color }}
+                    />
+                    <h1 className='text-sm text-gray-600'>{item.label}</h1>
+                  </div>
+                ))}
+              </div>
+              <ChartContainer config={chartConfig} className="mt-6 h-[320px] w-full">
+                <BarChart data={chartData} margin={{ left: 8, right: 8 }}>
+                  <CartesianGrid vertical={false} />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                  <Bar dataKey="nasiKotak" stackId="total" fill="var(--color-nasiKotak)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="prasmanan" stackId="total" fill="var(--color-prasmanan)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="snack" stackId="total" fill="var(--color-snack)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="bento" stackId="total" fill="var(--color-bento)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="custom" stackId="total" fill="var(--color-custom)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="aqiqah" stackId="total" fill="var(--color-aqiqah)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="tumpeng" stackId="total" fill="var(--color-tumpeng)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="weddingCatering" stackId="total" fill="var(--color-weddingCatering)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="kateringKorporat" stackId="total" fill="var(--color-kateringKorporat)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            </div>
+          </div>
+
+          <div className='mt-4'>
+            <div className='bg-white border border-gray-300 p-4 gap-4 rounded-xl flex flex-col'>
+              <h1 className='text-lg'>Tagihan Per Bulan</h1>
               <div className='grid grid-cols-2 gap-4 mt-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9'>
                 {chartLegendItems.map((item) => (
                   <div key={item.key} className='flex gap-4 items-center justify-center'>

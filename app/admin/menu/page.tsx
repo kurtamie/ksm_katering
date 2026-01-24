@@ -49,6 +49,7 @@ import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { getStrapiURL } from '@/lib/utils'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getCurrentUser } from '@/features/admin/create-order'
 
 const formatPrice = (value: string) => {
   if (!value || value === "-") return "-"
@@ -69,12 +70,29 @@ const resolveImageUrl = (value: string) => {
   return trimmed
 }
 
+const normalizeRoleValue = (value: string | null | undefined) =>
+  value?.toLowerCase() ?? ""
+
+const canManageMenu = (position: string | null, department: string | null) => {
+  const normalizedPosition = normalizeRoleValue(position)
+  const normalizedDepartment = normalizeRoleValue(department)
+
+  const isManager =
+    normalizedPosition === "manager" && normalizedDepartment === "manager"
+  const isAdminOperational =
+    normalizedPosition === "admin_operational" &&
+    normalizedDepartment === "operational"
+
+  return isManager || isAdminOperational
+}
+
 export default function page() {
   const [menus, setMenus] = React.useState<MenuPackage[]>([])
   const [isDeletingId, setIsDeletingId] = React.useState<string | null>(null)
   const [pageSize, setPageSize] = React.useState(10)
   const [currentPage, setCurrentPage] = React.useState(1)
   const [productFilter, setProductFilter] = React.useState("all")
+  const [canManage, setCanManage] = React.useState(false)
 
   React.useEffect(() => {
     let isMounted = true
@@ -87,6 +105,27 @@ export default function page() {
     }
 
     loadMenus()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    const loadCurrentUser = async () => {
+      const user = await getCurrentUser()
+      if (!isMounted) return
+
+      const allowed = canManageMenu(
+        user?.staff?.position ?? null,
+        user?.staff?.department ?? null
+      )
+      setCanManage(allowed)
+    }
+
+    loadCurrentUser()
 
     return () => {
       isMounted = false
@@ -123,6 +162,7 @@ export default function page() {
   const pagedMenus = filteredMenus.slice(startIndex, endIndex)
 
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
+  const tableColumnCount = canManage ? 7 : 6
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return
@@ -205,11 +245,13 @@ export default function page() {
                 </div>
               </div>
             </div>
-            <div className='ml-0 flex gap-2'>
-                <Link href={"/admin/menu/add"}>
-                    <Button className='cursor-pointer bg-gray-400'><FaPlus />Tambah Menu</Button>
-                </Link>
-            </div>
+            {canManage && (
+              <div className='ml-0 flex gap-2'>
+                  <Link href={"/admin/menu/add"}>
+                      <Button className='cursor-pointer bg-gray-400'><FaPlus />Tambah Menu</Button>
+                  </Link>
+              </div>
+            )}
         </div>
         <Table className='border mt-6 mb-8'>
             <TableHeader>
@@ -220,13 +262,13 @@ export default function page() {
                 <TableHead className='text-center'>Harga</TableHead>
                 <TableHead className='text-center'>Produk</TableHead>
                 <TableHead className='text-center'>Detail Menu</TableHead>
-                <TableHead className='text-center'>Aksi</TableHead>
+                {canManage && <TableHead className='text-center'>Aksi</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {pagedMenus.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-sm text-gray-500">
+                  <TableCell colSpan={tableColumnCount} className="text-center text-sm text-gray-500">
                     Belum ada data paket
                   </TableCell>
                 </TableRow>
@@ -294,43 +336,45 @@ export default function page() {
                             </AlertDialogContent>
                           </AlertDialog>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2 justify-center">
-                          <Button
-                            asChild
-                            className='bg-white border border-gray-500 hover:bg-gray-600 text-gray-500 cursor-pointer hover:text-white'
-                            disabled={!identifier}
-                          >
-                            <Link href={identifier ? `/admin/menu/${identifier}/edit` : "#"}>
-                              <Label>Edit</Label>
-                            </Link>
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                className='bg-gray-500 hover:bg-gray-600 cursor-pointer hover:text-white'
-                                disabled={!identifier || isDeletingId === identifier}
-                              >
-                                {isDeletingId === identifier ? "Menghapus..." : "Hapus"}
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Hapus paket?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Paket {menu.package_name} akan dihapus. Tindakan ini tidak bisa dibatalkan.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Batal</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteMenu(menu)}>
-                                  Ya, hapus
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
+                      {canManage && (
+                        <TableCell>
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              asChild
+                              className='bg-white border border-gray-500 hover:bg-gray-600 text-gray-500 cursor-pointer hover:text-white'
+                              disabled={!identifier}
+                            >
+                              <Link href={identifier ? `/admin/menu/${identifier}/edit` : "#"}>
+                                <Label>Edit</Label>
+                              </Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  className='bg-gray-500 hover:bg-gray-600 cursor-pointer hover:text-white'
+                                  disabled={!identifier || isDeletingId === identifier}
+                                >
+                                  {isDeletingId === identifier ? "Menghapus..." : "Hapus"}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Hapus paket?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Paket {menu.package_name} akan dihapus. Tindakan ini tidak bisa dibatalkan.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteMenu(menu)}>
+                                    Ya, hapus
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   )
                 })

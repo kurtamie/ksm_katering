@@ -2,19 +2,25 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MapCoordinatePicker from '@/components/custom/Coordinate-input'
 import { Coordinate } from '@/types/coordinate'
 import { createCustomer } from '@/features/admin/create-customer'
+import { getCurrentUser } from '@/features/admin/create-order'
+import { fetchStaffs, type Staff } from '@/features/admin/get-staff'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { useRouter } from 'next/navigation'
 
 const DEFAULT_COORDINATE: Coordinate = { lat: 1.134118, lng: 104.027631 }
 
+const normalizeRoleValue = (value: string | null | undefined) =>
+    value?.toLowerCase() ?? ""
+
 type FormValues = {
   salesName: string
+  staffId: string
   gender: string
   name: string
   companyName: string
@@ -23,12 +29,25 @@ type FormValues = {
   address: string
 }
 
+type CurrentUser = {
+  id: number
+  staff?: {
+    id: number
+    position?: string
+    department?: string
+  }
+}
+
 export default function page() {
     const router = useRouter()
+    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+    const [salesStaffOptions, setSalesStaffOptions] = useState<Staff[]>([])
+    const [staffOptionsLoading, setStaffOptionsLoading] = useState(false)
     const [coordinates, setCoordinates] = useState<Coordinate>(DEFAULT_COORDINATE)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [formValues, setFormValues] = useState<FormValues>({
         salesName: '',
+        staffId: '',
         gender: '',
         name: '',
         companyName: '',
@@ -36,6 +55,81 @@ export default function page() {
         company: '',
         address: '',
     })
+
+    const normalizedPosition = normalizeRoleValue(currentUser?.staff?.position)
+    const normalizedDepartment = normalizeRoleValue(currentUser?.staff?.department)
+    const isAdminOperational =
+        normalizedPosition === "admin_operational" && normalizedDepartment === "operational"
+    const isSalesMarketing =
+        normalizedPosition === "sales" && normalizedDepartment === "marketing"
+
+    useEffect(() => {
+        let isMounted = true
+
+        const loadCurrentUser = async () => {
+            const user = await getCurrentUser()
+            if (!isMounted) return
+            setCurrentUser(user)
+        }
+
+        loadCurrentUser()
+
+        return () => {
+            isMounted = false
+        }
+    }, [])
+
+    useEffect(() => {
+        let isMounted = true
+
+        const loadSalesStaffs = async () => {
+            setStaffOptionsLoading(true)
+            try {
+                const staffs = await fetchStaffs()
+                const salesStaffs = staffs.filter((staff) => {
+                    const position = normalizeRoleValue(staff.position)
+                    const department = normalizeRoleValue(staff.department)
+                    return position === "sales" && department === "marketing" && staff.id !== null
+                })
+                if (isMounted) {
+                    setSalesStaffOptions(salesStaffs)
+                }
+            } finally {
+                if (isMounted) {
+                    setStaffOptionsLoading(false)
+                }
+            }
+        }
+
+        loadSalesStaffs()
+
+        return () => {
+            isMounted = false
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!isSalesMarketing || !currentUser?.staff?.id) return
+
+        const staffIdValue = String(currentUser.staff.id)
+        const staffName = salesStaffOptions.find((staff) => staff.id === currentUser.staff?.id)?.name ?? ''
+
+        setFormValues((prev) => ({
+            ...prev,
+            staffId: staffIdValue,
+            salesName: staffName || prev.salesName,
+        }))
+    }, [currentUser?.staff?.id, isSalesMarketing, salesStaffOptions])
+
+    useEffect(() => {
+        if (!formValues.staffId) return
+
+        const selectedId = Number(formValues.staffId)
+        const selectedName = salesStaffOptions.find((staff) => staff.id === selectedId)?.name ?? ''
+        if (!selectedName) return
+
+        setFormValues((prev) => (prev.salesName === selectedName ? prev : { ...prev, salesName: selectedName }))
+    }, [formValues.staffId, salesStaffOptions])
 
     const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
         setFormValues((prev) => ({ ...prev, [field]: value }))
@@ -58,7 +152,7 @@ export default function page() {
         if (isSubmitting) return
 
         const requiredMap: Array<[keyof FormValues, string]> = [
-            ['salesName', 'Nama Sales'],
+            ['staffId', 'Nama Sales'],
             ['gender', 'Gender'],
             ['name', 'Nama'],
             ['companyName', 'Nama Instansi/Perusahaan'],
@@ -76,10 +170,16 @@ export default function page() {
             return
         }
 
+        const staffIdValue = formValues.staffId.trim()
+        const staffIdNumber = staffIdValue ? Number(staffIdValue) : null
+        if (!staffIdNumber || Number.isNaN(staffIdNumber)) {
+            toast.error('Nama sales tidak valid')
+            return
+        }
+
         setIsSubmitting(true)
         try {
             const payload = {
-                sales_name: toNullable(formValues.salesName),
                 gender: toNullable(formValues.gender),
                 name: toNullable(formValues.name),
                 company_name: toNullable(formValues.companyName),
@@ -88,6 +188,7 @@ export default function page() {
                 address: toNullable(formValues.address),
                 latitude: coordinates.lat.toString(),
                 longitude: coordinates.lng.toString(),
+                staff_id: staffIdNumber,
                 user_id: null,
                 orders: null,
             }
@@ -118,16 +219,30 @@ export default function page() {
             <div className='bg-white mt-2 flex flex-col px-4 md:px-8 rounded-lg'>
                 <div className='w-full mb-6 md:mb-8 py-4 md:py-6'>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Nama Sales</Label>
-                        <Input
-                            type="text"
-                            name="sales_name"
-                            id="sales_name"
-                            placeholder="Masukkan nama sales"
-                            required
-                            value={formValues.salesName}
-                            onChange={(e) => updateField('salesName', e.target.value)}
-                        />
+                        <Label htmlFor="staff_id">Nama Sales</Label>
+                        <Select
+                            value={formValues.staffId}
+                            onValueChange={(value) => updateField('staffId', value)}
+                            disabled={staffOptionsLoading || isSalesMarketing}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder={staffOptionsLoading ? "Memuat..." : "Pilih nama sales"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectLabel>Nama Sales</SelectLabel>
+                                    {salesStaffOptions.length === 0 ? (
+                                        <div className="px-2 py-1.5 text-sm text-gray-500">Belum ada staff sales</div>
+                                    ) : (
+                                        salesStaffOptions.map((staff) => (
+                                            <SelectItem key={staff.id ?? staff.documentId ?? staff.name} value={String(staff.id)}>
+                                                {staff.name}
+                                            </SelectItem>
+                                        ))
+                                    )}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
                         <Label htmlFor="nama">Gender</Label>

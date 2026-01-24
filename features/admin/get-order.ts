@@ -6,12 +6,15 @@ export type Order = {
   documentId: string | null
   staff_id: number | null
   staff_document_id?: string | null
+  staff_driver_staff_id?: number | null
+  staff_driver_document_id?: string | null
   order_no: string
   customer: string
   customer_type: string
   category: string
   package: string
   driver: string
+  staff_driver_id: string
   qty: string
   price_ksm: string
   price_send: string
@@ -38,11 +41,15 @@ export type Order = {
   box: string
   pudding: string
   snack: string
+  latitude: string
+  longitude: string
 }
 
 const apiBaseUrl = getStrapiURL()
 const SALES_POSITION = "sales"
 const MARKETING_DEPARTMENT = "marketing"
+const DRIVER_POSITION = "driver"
+const DELIVERY_DEPARTMENT = "delivery"
 
 const withFallback = (value: unknown): string => {
   if (value === null || value === undefined) return "-"
@@ -152,12 +159,40 @@ const normalizeOrder = (item: any): Order => {
   const staffId = parseId(
     staffData?.id ??
     staffAttrs?.id ??
-    staffAttrs?.staff_id
+    staffAttrs?.staff_id ??
+    (typeof staffData === "string" || typeof staffData === "number" ? staffData : null) ??
+    attributes?.staff_id
   )
   const staffDocumentId = parseDocumentId(
     staffData?.documentId ??
     staffAttrs?.documentId ??
-    staffAttrs?.document_id
+    staffAttrs?.document_id ??
+    (typeof staffData === "string" ? staffData : null) ??
+    attributes?.staff_document_id ??
+    attributes?.staff_documentId
+  )
+
+  const rawStaffDriver = attributes?.staff_driver_id
+  const rawStaffDriverValue =
+    typeof rawStaffDriver === "string" || typeof rawStaffDriver === "number"
+      ? rawStaffDriver
+      : null
+  const staffDriverData = getRelationData(rawStaffDriver)
+  const staffDriverAttrs = getAttributes(staffDriverData)
+  const staffDriverId = parseId(
+    staffDriverData?.id ??
+    staffDriverAttrs?.id ??
+    staffDriverAttrs?.staff_id ??
+    rawStaffDriverValue ??
+    attributes?.staff_driver_id
+  )
+  const staffDriverDocumentId = parseDocumentId(
+    staffDriverData?.documentId ??
+    staffDriverAttrs?.documentId ??
+    staffDriverAttrs?.document_id ??
+    (typeof rawStaffDriverValue === "string" ? rawStaffDriverValue : null) ??
+    attributes?.staff_driver_document_id ??
+    attributes?.staff_driver_documentId
   )
 
   return {
@@ -165,6 +200,8 @@ const normalizeOrder = (item: any): Order => {
     documentId,
     staff_id: staffId,
     staff_document_id: staffDocumentId,
+    staff_driver_staff_id: staffDriverId,
+    staff_driver_document_id: staffDriverDocumentId,
     order_no: withFallback(
       attributes.order_no ||
       attributes.orderNo ||
@@ -218,7 +255,9 @@ const normalizeOrder = (item: any): Order => {
       staffAttrs?.name ||
       staffAttrs?.staff_name
     ),
-    
+
+    staff_driver_id: withFallback(staffDriverAttrs?.name),
+
     qty: withFallback(detailAttrs?.qty),
     
     price_ksm: withFallback(
@@ -275,6 +314,10 @@ const normalizeOrder = (item: any): Order => {
     pudding: withFallback(menuAttrs?.pudding),
 
     snack: withFallback(menuAttrs?.snack),
+
+    latitude: withFallback(attributes.latitude),
+
+    longitude: withFallback(attributes.longitude),
     
     createdAt: withFallback(createdDate),
   }
@@ -300,59 +343,88 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
         roleFromCookie.department)?.toLowerCase() ?? null
     const shouldLimitToStaff =
       position === SALES_POSITION && department === MARKETING_DEPARTMENT
+    const shouldLimitToDriver =
+      position === DRIVER_POSITION && department === DELIVERY_DEPARTMENT
     let staffId = options.staffId ?? currentUser?.staff?.id ?? null
     let staffDocumentId = currentUser?.staff?.documentId ?? null
 
-    if (shouldLimitToStaff && currentUser?.id && (!staffId || !staffDocumentId)) {
+    if ((shouldLimitToStaff || shouldLimitToDriver) && currentUser?.id && (!staffId || !staffDocumentId)) {
       const staffFromUser = await fetchStaffForUser(currentUser.id)
       staffId = staffId ?? staffFromUser?.id ?? null
       staffDocumentId = staffDocumentId ?? staffFromUser?.documentId ?? null
     }
 
-    if (shouldLimitToStaff && !staffId && !staffDocumentId) {
+    if ((shouldLimitToStaff || shouldLimitToDriver) && !staffId && !staffDocumentId) {
       return []
     }
 
-    const url = new URL('/api/orders', apiBaseUrl)
-    
-    url.searchParams.set('populate[customer_id][populate]', '*')
-    url.searchParams.set('populate[staff_id][populate]', '*')
-    url.searchParams.set('populate[package_id][populate]', '*')
-    url.searchParams.set('populate[order_details][populate]', '*')
-    url.searchParams.set('populate[order_menus][populate]', '*')
-    if (shouldLimitToStaff) {
-      if (staffId) {
-        url.searchParams.set('filters[$or][0][staff_id][id][$eq]', String(staffId))
-      }
-      if (staffDocumentId) {
-        url.searchParams.set('filters[$or][1][staff_id][documentId][$eq]', staffDocumentId)
-      }
-    }
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+    const fetchOrdersFromApi = async (applyStaffFilter: boolean, applyDriverFilter: boolean) => {
+      const url = new URL('/api/orders', apiBaseUrl)
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
+      url.searchParams.set('populate[customer_id][populate]', '*')
+      url.searchParams.set('populate[staff_id][populate]', '*')
+      url.searchParams.set('populate[staff_driver_id][populate]', '*')
+      url.searchParams.set('populate[package_id][populate]', '*')
+      url.searchParams.set('populate[order_details][populate]', '*')
+      url.searchParams.set('populate[order_menus][populate]', '*')
+      if (applyStaffFilter) {
+        if (staffId) {
+          url.searchParams.set('filters[$or][0][staff_id][id][$eq]', String(staffId))
+          url.searchParams.set('filters[$or][2][staff_id][$eq]', String(staffId))
+        }
+        if (staffDocumentId) {
+          url.searchParams.set('filters[$or][1][staff_id][documentId][$eq]', staffDocumentId)
+          url.searchParams.set('filters[$or][3][staff_document_id][$eq]', staffDocumentId)
+        }
+      }
+      if (applyDriverFilter) {
+        if (staffId) {
+          url.searchParams.set('filters[$or][0][staff_driver_id][id][$eq]', String(staffId))
+          url.searchParams.set('filters[$or][2][staff_driver_id][$eq]', String(staffId))
+        }
+        if (staffDocumentId) {
+          url.searchParams.set('filters[$or][1][staff_driver_id][documentId][$eq]', staffDocumentId)
+          url.searchParams.set('filters[$or][3][staff_driver_document_id][$eq]', staffDocumentId)
+        }
+      }
 
-    const result = await response.json()
-    
-    console.log('API Response:', result) 
-    
-    let orders = []
-    
-    if (result?.data && Array.isArray(result.data)) {
-      orders = result.data
-    } else if (Array.isArray(result)) {
-      orders = result
-    } else {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+
+      console.log('API Response:', result)
+
+      if (result?.data && Array.isArray(result.data)) {
+        return result.data
+      }
+      if (Array.isArray(result)) {
+        return result
+      }
+
       console.warn('Unexpected response structure:', result)
       return []
+    }
+
+    let orders: any[] = []
+    try {
+      orders = await fetchOrdersFromApi(shouldLimitToStaff, shouldLimitToDriver)
+    } catch (error) {
+      if (!shouldLimitToDriver) {
+        throw error
+      }
+      orders = await fetchOrdersFromApi(shouldLimitToStaff, false)
+    }
+    if (shouldLimitToDriver && orders.length === 0) {
+      orders = await fetchOrdersFromApi(shouldLimitToStaff, false)
     }
     
     console.log('Orders before normalize:', orders) 
@@ -363,6 +435,13 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
       normalized = normalized.filter((order: any) => {
         if (staffId && order.staff_id === staffId) return true
         if (staffDocumentId && order.staff_document_id === staffDocumentId) return true
+        return false
+      })
+    }
+    if (shouldLimitToDriver) {
+      normalized = normalized.filter((order: any) => {
+        if (staffId && order.staff_driver_staff_id === staffId) return true
+        if (staffDocumentId && order.staff_driver_document_id === staffDocumentId) return true
         return false
       })
     }
@@ -385,6 +464,7 @@ export async function fetchOrderByDocumentId(documentId: string): Promise<Order 
   const url = new URL(`/api/orders/${identifier}`, apiBaseUrl)
   url.searchParams.set('populate[customer_id][populate]', '*')
   url.searchParams.set('populate[staff_id][populate]', '*')
+  url.searchParams.set('populate[staff_driver_id][populate]', '*')
   url.searchParams.set('populate[package_id][populate]', '*')
   url.searchParams.set('populate[order_details][populate]', '*')
   url.searchParams.set('populate[order_menus][populate]', '*')

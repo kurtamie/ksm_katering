@@ -4,6 +4,8 @@ type CustomerOption = {
   id: number
   name: string
   phone_no: string
+  staff_id?: number | null
+  staff_document_id?: string | null
 }
 
 type PackageOption = {
@@ -32,7 +34,6 @@ type OrderPayload = {
     delivery_address: string
     latitude: string
     longitude: string
-    driver: string
   }
   orderDetailData: {
     qty: string
@@ -87,6 +88,53 @@ const getNextOrderNumber = (current?: string): string => {
 }
 
 const apiBaseUrl = getStrapiURL()
+
+const parseId = (value: unknown): number | null => {
+  const numeric = typeof value === 'string' ? Number(value) : Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+const parseDocumentId = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null
+  const stringValue = String(value).trim()
+  return stringValue.length > 0 ? stringValue : null
+}
+
+const getRelationId = (relation: any): number | null => {
+  if (relation === null || relation === undefined) return null
+  if (typeof relation === 'string' || typeof relation === 'number') {
+    return parseId(relation)
+  }
+  if (Array.isArray(relation)) {
+    return parseId(relation[0]?.id ?? relation[0])
+  }
+  if (relation?.data) {
+    if (Array.isArray(relation.data)) {
+      return parseId(relation.data[0]?.id ?? relation.data[0])
+    }
+    return parseId(relation.data?.id ?? relation.data)
+  }
+  return parseId(relation?.id ?? relation)
+}
+
+const getRelationDocumentId = (relation: any): string | null => {
+  if (relation === null || relation === undefined) return null
+  if (typeof relation === 'string' || typeof relation === 'number') {
+    return parseDocumentId(relation)
+  }
+  if (Array.isArray(relation)) {
+    return parseDocumentId(relation[0]?.documentId ?? relation[0]?.document_id ?? relation[0])
+  }
+  if (relation?.data) {
+    if (Array.isArray(relation.data)) {
+      return parseDocumentId(
+        relation.data[0]?.documentId ?? relation.data[0]?.document_id ?? relation.data[0]
+      )
+    }
+    return parseDocumentId(relation.data?.documentId ?? relation.data?.document_id ?? relation.data)
+  }
+  return parseDocumentId(relation?.documentId ?? relation?.document_id ?? relation)
+}
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   try {
@@ -145,6 +193,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 export async function fetchCustomers(): Promise<CustomerOption[]> {
   try {
     const url = new URL('/api/customers', apiBaseUrl)
+    url.searchParams.set('populate[staff_id][populate]', '*')
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -159,18 +208,62 @@ export async function fetchCustomers(): Promise<CustomerOption[]> {
     const data = await response.json() as any
 
     if (Array.isArray(data?.customers)) {
-      return data.customers
-    }
-
-    if (Array.isArray(data?.data)) {
-      return data.data.map((item: any) => ({
+      return data.customers.map((item: any) => ({
         id: item.id,
-        name: item.attributes?.name ?? item.name ?? '',
-        phone_no: item.attributes?.phone_no ?? item.phone_no ?? '',
+        name: item.name ?? item.attributes?.name ?? '',
+        phone_no: item.phone_no ?? item.attributes?.phone_no ?? '',
+        staff_id: getRelationId(
+          item.staff_id ??
+            item.staff ??
+            item.attributes?.staff_id ??
+            item.attributes?.staff
+        ),
+        staff_document_id: getRelationDocumentId(
+          item.staff_id ??
+            item.staff ??
+            item.attributes?.staff_id ??
+            item.attributes?.staff
+        ),
       }))
     }
 
-    return Array.isArray(data) ? data : []
+    if (Array.isArray(data?.data)) {
+      return data.data.map((item: any) => {
+        const attributes = item.attributes ?? item
+        const staffRelation =
+          attributes?.staff_id ??
+          attributes?.staff ??
+          item.staff_id ??
+          item.staff
+        return {
+          id: item.id,
+          name: attributes?.name ?? item.name ?? '',
+          phone_no: attributes?.phone_no ?? item.phone_no ?? '',
+          staff_id: getRelationId(staffRelation),
+          staff_document_id: getRelationDocumentId(staffRelation),
+        }
+      })
+    }
+
+    return Array.isArray(data)
+      ? data.map((item: any) => ({
+        id: item.id,
+        name: item.name ?? item.attributes?.name ?? '',
+        phone_no: item.phone_no ?? item.attributes?.phone_no ?? '',
+        staff_id: getRelationId(
+          item.staff_id ??
+            item.staff ??
+            item.attributes?.staff_id ??
+            item.attributes?.staff
+        ),
+        staff_document_id: getRelationDocumentId(
+          item.staff_id ??
+            item.staff ??
+            item.attributes?.staff_id ??
+            item.attributes?.staff
+        ),
+      }))
+      : []
   } catch (error) {
     console.error('Error fetching customers:', error)
     throw new Error('Gagal mengambil data customer')
@@ -252,7 +345,10 @@ export async function fetchNextOrderNumber(): Promise<string> {
   }
 }
 
-export async function createOrder(payload: OrderPayload): Promise<OrderResult> {
+export async function createOrder(
+  payload: OrderPayload,
+  options?: { staffId?: number | null }
+): Promise<OrderResult> {
   try {
     const currentUser = await getCurrentUser()
     
@@ -263,7 +359,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResult> {
       }
     }
 
-    const staffId = currentUser.staff?.id
+    const staffId = options?.staffId ?? currentUser.staff?.id
 
     if (!staffId) {
       return {

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 
 import Header from "@/components/layout/header"
 import { AppSidebar } from "@/components/layout/sidebar"
+import MobileNavbar from "@/components/layout/navbar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import PwaPrompt from "@/components/custom/pwa-prompt"
 
@@ -35,10 +36,11 @@ export default function AppShell({ children }: AppShellProps) {
       <AppSidebar />
       <SidebarInset className="bg-gray-50 min-h-svh overflow-x-hidden">
         <Header />
-        <div className="w-full">
+        <div className="w-full pb-24 md:pb-0">
           <PwaPrompt />
           {children}
         </div>
+      <MobileNavbar />
       </SidebarInset>
     </SidebarProvider>
   )

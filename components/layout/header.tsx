@@ -2,9 +2,6 @@
 import Link from 'next/link';
 import React, { Fragment, useState } from 'react';
 import Image from 'next/image';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import { RiSearchLine } from "react-icons/ri";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   DropdownMenuRadioItem,
@@ -14,14 +11,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { FiBell } from 'react-icons/fi';
 import { ChevronDown } from 'lucide-react';
 import { AiOutlineUser } from 'react-icons/ai';
-import { LuStore } from 'react-icons/lu';
-import { RxReader } from 'react-icons/rx';
-import { IoAlertCircleOutline } from 'react-icons/io5';
 import { Label } from '../ui/label';
 import Profile from "@/app/asset/profile.png"
+import logo from "@/app/asset/logo.png";
 import { LogoutButton } from '../custom/logout-button';
 import {
   AlertDialog,
@@ -39,7 +33,7 @@ export default function Header() {
     const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
   return (
-    <div className="shadow-md w-full sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50">
+    <div className="shadow-md w-full sticky top-0 bg-[#8D0000] dark:bg-[#8D0000] backdrop-blur-md z-50">
       <AlertDialog open={showLogoutAlert} onOpenChange={setShowLogoutAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -61,42 +55,39 @@ export default function Header() {
         </AlertDialogContent>
       </AlertDialog>
       <div className="w-full mx-auto max-w-7xl px-4 gap-6 py-3 flex items-center justify-between">
-        <div className="flex gap-2 items-start justify-items-start">
+        {/* Desktop: SidebarTrigger + Text */}
+        <div className="hidden md:flex gap-2 items-start justify-items-start">
           <SidebarTrigger />
           <Link
             href="/dashboard"
             className="flex items-center gap-3 hover:opacity-90 transition-opacity"
           >
-            <Label className='text-black text-xs sm:text-xl font-bold'>KSM Katering Batam</Label>
+            <Label className='text-white text-xs sm:text-xl font-bold'>KSM Katering Batam</Label>
           </Link>
-          {/* <Badge variant="secondary" className="bg-red-500/10 w-14 h-6 text-red-500 dark:bg-red-500/20 dark:text-red-300 font-semibold text-[10px] sm:text-sm">
-            Beta
-          </Badge> */}
         </div>
 
-        {/* <form
-          className="flex items-center w-full max-w-xl"
-        >
-          <Input
-            className="w-full"
-            placeholder="Cari"
-          />
-          <Button
-            type="submit"
-            className="cursor-pointer bg-gray-500 hover:bg-gray-400 ml-2"
-          >
-            <RiSearchLine className="text-white" />
-          </Button>
-        </form> */}
+        {/* Mobile: SidebarTrigger + Logo + Spacer */}
+        <div className="flex md:hidden w-full items-center">
+          <SidebarTrigger className="text-white" />
+          <div className="flex-1 flex justify-center">
+            <Link
+              href="/dashboard"
+              className="flex items-center hover:opacity-90 transition-opacity"
+            >
+              <Image
+                src={logo}
+                alt="KSM Katering"
+                className="h-10 w-auto"
+                priority
+              />
+            </Link>
+          </div>
+          {/* Spacer untuk menjaga logo tetap center */}
+          <div className="w-10"></div>
+        </div>
 
-        <div className="flex items-center gap-4">
-          {/* <div className="relative">
-            <FiBell
-              role="button"
-              className="cursor-pointer rounded-full w-6 h-6"
-            />
-          </div> */}
-
+        {/* Desktop: Profile Dropdown */}
+        <div className="hidden md:flex items-center gap-4">
           <Fragment>
             <DropdownMenu>
               <DropdownMenuTrigger role="button">
@@ -108,7 +99,7 @@ export default function Header() {
                     width={32}
                     height={32}
                   />
-                  <ChevronDown className="text-sm" />
+                  <ChevronDown className="text-sm text-white" />
                 </div>
               </DropdownMenuTrigger>
 

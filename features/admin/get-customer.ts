@@ -67,11 +67,19 @@ const normalizeCustomer = (item: any): Customer => {
 
   const userData = getRelationData(attributes?.user_id)
   const userAttrs = getAttributes(userData)
+  const staffData = getRelationData(attributes?.staff_id)
+  const staffAttrs = getAttributes(staffData)
+  const staffName =
+    staffAttrs?.name ||
+    staffAttrs?.staff_name ||
+    staffAttrs?.staffName ||
+    null
+  const rawSalesName = attributes?.sales_name
 
   return {
     id: customerId,
     documentId,
-    sales_name: withFallback(attributes?.sales_name),
+    sales_name: withFallback(rawSalesName ?? staffName),
     gender: withFallback(attributes?.gender),
     name: withFallback(attributes?.name),
     company_name: withFallback(attributes?.company_name),
@@ -89,6 +97,7 @@ export async function fetchCustomers(): Promise<Customer[]> {
   try {
     const url = new URL('/api/customers', apiBaseUrl)
     url.searchParams.set('populate[user_id][populate]', '*')
+    url.searchParams.set('populate[staff_id][populate]', '*')
 
     const response = await fetch(url, {
       method: 'GET',

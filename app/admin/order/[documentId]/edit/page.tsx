@@ -17,6 +17,7 @@ import MapCoordinatePicker from "@/components/custom/Coordinate-input"
 import { Textarea } from "@/components/ui/textarea"
 import React, { useEffect, useState } from "react"
 import { fetchCustomers, fetchPackages } from "@/features/admin/create-order"
+import { fetchStaffs, type Staff } from "@/features/admin/get-staff"
 import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner"
 import { useRouter, useParams } from "next/navigation"
@@ -68,10 +69,14 @@ type FormValues = {
   box: string
   pudding: string
   snack: string
+  staffDriverId: string
 }
 
 const DEFAULT_COORDINATE: Coordinate = { lat: 1.134118, lng: 104.027631 }
 const DEFAULT_ORDER_NUMBER = "0001"
+
+const normalizeRoleValue = (value: string | null | undefined) =>
+  value?.toLowerCase() ?? ""
 
 const calculateLeaveTime = (arrivalTime: string) => {
   const [hours, minutes, seconds = "0"] = arrivalTime.split(":")
@@ -102,6 +107,7 @@ export default function Page() {
   const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>([])
   const [packageOptions, setPackageOptions] = useState<PackageOption[]>([])
   const [productOptions, setProductOptions] = useState<string[]>([])
+  const [driverOptions, setDriverOptions] = useState<Staff[]>([])
   const [optionsLoading, setOptionsLoading] = useState(false)
   const [coordinates, setCoordinates] = useState<Coordinate>(DEFAULT_COORDINATE)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -139,6 +145,7 @@ export default function Page() {
     box: "",
     pudding: "",
     snack: "",
+    staffDriverId: "",
   })
   const [metaIds, setMetaIds] = useState({
     orderId: null as number | null,
@@ -276,12 +283,22 @@ export default function Page() {
     const loadOptions = async () => {
       setOptionsLoading(true)
       try {
-        const [customers, packages] = await Promise.all([fetchCustomers(), fetchPackages()])
+        const [customers, packages, staffs] = await Promise.all([
+          fetchCustomers(),
+          fetchPackages(),
+          fetchStaffs(),
+        ])
         setCustomerOptions(customers)
         setPackageOptions(packages)
         setProductOptions(deriveProductsFromPackages(packages))
+        const eligibleDrivers = staffs.filter((staff) => {
+          const normalizedPosition = normalizeRoleValue(staff.position)
+          const normalizedDepartment = normalizeRoleValue(staff.department)
+          return normalizedPosition === "driver" && normalizedDepartment === "delivery"
+        })
+        setDriverOptions(eligibleDrivers.filter((staff) => staff.id !== null))
       } catch (error) {
-        toast.error("Gagal memuat data customer atau paket")
+        toast.error("Gagal memuat data customer, paket, atau driver")
       } finally {
         setOptionsLoading(false)
       }
@@ -336,6 +353,7 @@ export default function Page() {
           box: order.box,
           pudding: order.pudding,
           snack: order.snack,
+          staffDriverId: order.staffDriverId,
         })
 
         setDate(safeDate)
@@ -456,9 +474,16 @@ export default function Page() {
 
     const customerIdNumber = Number(formValues.customerId)
     const packageIdNumber = Number(formValues.packageId)
+    const staffDriverIdValue = formValues.staffDriverId.trim()
+    const staffDriverIdNumber = staffDriverIdValue ? Number(staffDriverIdValue) : null
 
     if (Number.isNaN(customerIdNumber) || Number.isNaN(packageIdNumber)) {
       toast.error("Customer atau paket tidak valid")
+      return
+    }
+
+    if (staffDriverIdValue && Number.isNaN(staffDriverIdNumber)) {
+      toast.error("Driver tidak valid")
       return
     }
 
@@ -486,6 +511,7 @@ export default function Page() {
           delivery_address: formValues.recipientAddress,
           latitude: coordinates.lat.toString(),
           longitude: coordinates.lng.toString(),
+          staff_driver_id: staffDriverIdNumber,
         },
         orderDetailData: {
           qty: formValues.qty,
@@ -1081,6 +1107,34 @@ export default function Page() {
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <MapCoordinatePicker value={coordinates} onChange={setCoordinates} />
+            </div>
+            <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+              <Label htmlFor="staff_driver_id">Driver</Label>
+              <Select
+                value={formValues.staffDriverId}
+                onValueChange={(value) => updateField("staffDriverId", value)}
+                disabled={optionsLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={optionsLoading ? "Memuat..." : "Pilih driver"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Driver</SelectLabel>
+                    {driverOptions.length === 0 ? (
+                      <SelectItem value="-" disabled>
+                        Belum ada driver
+                      </SelectItem>
+                    ) : (
+                      driverOptions.map((driver) => (
+                        <SelectItem key={driver.id ?? driver.documentId ?? driver.name} value={String(driver.id)}>
+                          {driver.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
             <Button className="w-full md:w-auto bg-gray-400 text-white" onClick={handleSubmit} disabled={isSubmitting || isLoadingOrder}>
               {isSubmitting ? "Menyimpan..." : "SIMPAN PERUBAHAN"}
