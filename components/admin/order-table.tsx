@@ -19,6 +19,10 @@ interface OrderTableProps {
   orders: Order[]
   onOrderClick: (order: Order) => void
   loading?: boolean
+  selectionMode?: boolean
+  selectedOrderKeys?: Set<string>
+  onToggleSelect?: (order: Order) => void
+  onStartSelection?: (order: Order) => void
 }
 
 const isValidDate = (value: string) => {
@@ -26,12 +30,15 @@ const isValidDate = (value: string) => {
   return Number.isFinite(timestamp)
 }
 
-const OrderTableSkeleton = () => {
+const OrderTableSkeleton = ({ selectionMode }: { selectionMode: boolean }) => {
   return (
     <div className="relative w-full overflow-hidden rounded-lg border bg-white shadow-sm">
       <Table className="text-xs sm:text-sm">
         <TableHeader>
           <TableRow>
+            {selectionMode && (
+              <TableHead className="w-10 font-bold whitespace-nowrap"><Skeleton className="h-4 w-6" /></TableHead>
+            )}
             <TableHead className="min-w-[150px] font-bold whitespace-nowrap"><Skeleton className="h-4 w-24" /></TableHead>
             <TableHead className='min-w-[120px] font-bold whitespace-nowrap'><Skeleton className="h-4 w-20" /></TableHead>
             <TableHead className='min-w-[180px] font-bold whitespace-nowrap'><Skeleton className="h-4 w-32" /></TableHead>
@@ -48,6 +55,9 @@ const OrderTableSkeleton = () => {
         <TableBody>
           {Array.from({ length: 10 }).map((_, index) => (
             <TableRow key={index}>
+              {selectionMode && (
+                <TableCell className="whitespace-nowrap"><Skeleton className="h-4 w-6" /></TableCell>
+              )}
               <TableCell className="whitespace-nowrap"><Skeleton className="h-4 w-full" /></TableCell>
               <TableCell className="whitespace-nowrap"><Skeleton className="h-4 w-full" /></TableCell>
               <TableCell className="whitespace-nowrap"><Skeleton className="h-4 w-full" /></TableCell>
@@ -68,7 +78,18 @@ const OrderTableSkeleton = () => {
 }
 
 
-export default function OrderTable({ orders, onOrderClick, loading = false }: OrderTableProps) {
+export default function OrderTable({
+  orders,
+  onOrderClick,
+  loading = false,
+  selectionMode = false,
+  selectedOrderKeys = new Set(),
+  onToggleSelect,
+  onStartSelection,
+}: OrderTableProps) {
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTriggeredRef = React.useRef(false)
+
   const formatDate = (dateString: string) => {
     if (!isValidDate(dateString)) return "-"
     const date = new Date(dateString)
@@ -98,9 +119,46 @@ export default function OrderTable({ orders, onOrderClick, loading = false }: Or
     if (b === "no-date") return -1
     return new Date(b).getTime() - new Date(a).getTime()
   })
+
+  const getOrderKey = (order: Order) =>
+    order.documentId ?? String(order.id ?? order.order_no)
+
+  const handleRowClick = (order: Order) => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false
+      return
+    }
+
+    if (selectionMode) {
+      onToggleSelect?.(order)
+      return
+    }
+
+    onOrderClick(order)
+  }
+
+  const startLongPress = (order: Order) => {
+    if (selectionMode) return
+    if (!onStartSelection) return
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+    }
+    longPressTriggeredRef.current = false
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true
+      onStartSelection(order)
+    }, 450)
+  }
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
   
   if (loading) {
-    return <OrderTableSkeleton />
+    return <OrderTableSkeleton selectionMode={selectionMode} />
   }
 
   return (
@@ -109,6 +167,9 @@ export default function OrderTable({ orders, onOrderClick, loading = false }: Or
         <Table className="text-xs sm:text-sm">
           <TableHeader>
             <TableRow>
+              {selectionMode && (
+                <TableHead className="w-10 font-bold whitespace-nowrap"></TableHead>
+              )}
               <TableHead className="min-w-[150px] font-bold whitespace-nowrap">Nomor Order</TableHead>
               <TableHead className='min-w-[120px] font-bold whitespace-nowrap'>Customer ID</TableHead>
               <TableHead className='min-w-[180px] font-bold whitespace-nowrap'>Golongan Customer</TableHead>
@@ -126,7 +187,7 @@ export default function OrderTable({ orders, onOrderClick, loading = false }: Or
             {sortedDates.map((dateKey) => (
               <React.Fragment key={dateKey}>
                 <TableRow className="bg-gray-100 hover:bg-gray-100">
-                  <TableCell colSpan={11} className="font-semibold text-gray-700">
+                  <TableCell colSpan={selectionMode ? 12 : 11} className="font-semibold text-gray-700">
                     {dateKey === "no-date" ? "Tanggal Tidak Valid" : formatDate(dateKey)}
                   </TableCell>
                 </TableRow>
@@ -134,8 +195,25 @@ export default function OrderTable({ orders, onOrderClick, loading = false }: Or
                   <TableRow 
                     key={`${order.order_no}-${dateKey}-${index}`}
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => onOrderClick(order)}
+                    onClick={() => handleRowClick(order)}
+                    onMouseDown={() => startLongPress(order)}
+                    onMouseUp={cancelLongPress}
+                    onMouseLeave={cancelLongPress}
+                    onTouchStart={() => startLongPress(order)}
+                    onTouchEnd={cancelLongPress}
+                    onTouchMove={cancelLongPress}
                   >
+                    {selectionMode && (
+                      <TableCell className="whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={selectedOrderKeys.has(getOrderKey(order))}
+                          onChange={() => onToggleSelect?.(order)}
+                          onClick={(event) => event.stopPropagation()}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="whitespace-nowrap">{order.order_no}</TableCell>
                     <TableCell className="whitespace-nowrap">{order.customer}</TableCell>
                     <TableCell className="whitespace-nowrap">{order.customer_type}</TableCell>

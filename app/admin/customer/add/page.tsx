@@ -32,7 +32,7 @@ type FormValues = {
 type CurrentUser = {
   id: number
   staff?: {
-    id: number
+    id: number | null
     position?: string
     department?: string
   }

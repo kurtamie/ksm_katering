@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/layout/app-shell";
+import { UserProvider } from "@/components/providers/user-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,12 +18,15 @@ export const metadata: Metadata = {
   title: "KSM Catering",
   description: "Kateringku, ya KSM Katering",
   manifest: "/manifest.webmanifest",
-  themeColor: "#0f172a",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "KSM Catering",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({
@@ -35,7 +39,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppShell>{children}</AppShell>
+        <UserProvider>
+          <AppShell>{children}</AppShell>
+        </UserProvider>
       </body>
     </html>
   );

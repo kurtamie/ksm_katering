@@ -186,7 +186,7 @@ export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdi
   const coords = normalizeCoordinate(attributes.latitude, attributes.longitude)
 
   return {
-    orderId: parseNumber(data?.id ?? attributes.id ?? attributes.order_no ?? attributes.orderNo),
+    orderId: parseNumber(data?.id ?? attributes.id),
     orderDetailId: parseNumber(detailData[0]?.id ?? detailAttrs.id),
     orderMenuId: parseNumber(menuData[0]?.id ?? menuAttrs.id),
     orderNo: toStringValue(attributes.order_no ?? attributes.orderNo ?? ''),
@@ -227,6 +227,22 @@ export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdi
   }
 }
 
+const fetchOrderIdByDocumentId = async (documentId: string): Promise<number | null> => {
+  const url = new URL(`/api/orders/${documentId}`, apiBaseUrl)
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const result = await response.json().catch(() => ({}))
+  const data = result?.data ?? result
+  return parseNumber(data?.id ?? data?.attributes?.id)
+}
+
 const upsertRelated = async (
   endpoint: string,
   data: Record<string, any>,
@@ -249,20 +265,14 @@ const upsertRelated = async (
     return { ok: true }
   }
 
-  if (existingId) {
-    const putUrl = new URL(`${endpoint}/${existingId}`, apiBaseUrl)
-    const putResult = await doRequest(putUrl, 'PUT')
+  if (!existingId) return
 
-    if (putResult.ok) return
-    if (putResult.status !== 404) {
-      throw new Error(putResult.message)
-    }
-  }
+  const putUrl = new URL(`${endpoint}/${existingId}`, apiBaseUrl)
+  const putResult = await doRequest(putUrl, 'PUT')
 
-  const postUrl = new URL(endpoint, apiBaseUrl)
-  const postResult = await doRequest(postUrl, 'POST')
-  if (!postResult.ok) {
-    throw new Error(postResult.message)
+  if (putResult.ok) return
+  if (putResult.status !== 404) {
+    throw new Error(putResult.message)
   }
 }
 
@@ -274,12 +284,13 @@ export async function updateOrder(documentId: string, payload: UpdateOrderPayloa
   }
 
   try {
-    const relationData: Record<string, number[]> = {}
-    if (payload.orderDetailId) {
-      relationData.order_details = [payload.orderDetailId]
+    let orderId = payload.orderId ?? null
+    if (!orderId) {
+      orderId = await fetchOrderIdByDocumentId(identifier)
     }
-    if (payload.orderMenuId) {
-      relationData.order_menus = [payload.orderMenuId]
+
+    if (!orderId) {
+      return { success: false, error: 'Gagal menemukan ID pesanan untuk relasi detail/menu.' }
     }
 
     const orderUrl = new URL(`/api/orders/${identifier}`, apiBaseUrl)
@@ -289,7 +300,6 @@ export async function updateOrder(documentId: string, payload: UpdateOrderPayloa
       body: JSON.stringify({
         data: {
           ...payload.orderData,
-          ...relationData,
         },
       }),
     })
@@ -300,17 +310,16 @@ export async function updateOrder(documentId: string, payload: UpdateOrderPayloa
       return { success: false, error: message }
     }
 
-    const orderResult = await orderResponse.json().catch(() => ({}))
-    const orderId = payload.orderId ?? orderResult?.data?.id ?? orderResult?.id ?? null
+    await orderResponse.json().catch(() => ({}))
 
-    if (payload.orderDetailData) {
+    if (payload.orderDetailData && payload.orderDetailId) {
       await upsertRelated('/api/order-details', {
         ...payload.orderDetailData,
         order_id: orderId ? [orderId] : undefined,
       }, payload.orderDetailId)
     }
 
-    if (payload.orderMenuData) {
+    if (payload.orderMenuData && payload.orderMenuId) {
       await upsertRelated('/api/order-menus', {
         ...payload.orderMenuData,
         order_id: orderId ? [orderId] : undefined,

@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from '@/components/ui/button'
-import React from 'react'
+import React, { Suspense } from 'react'
 import {
   Popover,
   PopoverContent,
@@ -27,6 +27,7 @@ import { fetchOrders, type Order } from '@/features/admin/get-order'
 import { getCurrentUser } from '@/features/admin/create-order'
 import { deleteOrder } from '@/features/admin/delete-order'
 import { generateOrderPdf } from '@/features/admin/generate-pdf-order'
+import { generateInvoiceOrderPdf } from '@/features/admin/generate-invoice-order'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
 import {
@@ -154,7 +155,7 @@ const getGoogleMapsUrl = (latitude: string, longitude: string) => {
   return `https://www.google.com/maps?q=${lat},${lng}`
 }
 
-export default function Page() {
+function OrderPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const now = new Date()
@@ -173,7 +174,10 @@ export default function Page() {
   const [currentStaffDocumentId, setCurrentStaffDocumentId] = React.useState<string | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false)
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = React.useState(false)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const [selectionMode, setSelectionMode] = React.useState(false)
+  const [selectedOrderKeys, setSelectedOrderKeys] = React.useState<Set<string>>(new Set())
   const documentIdParam = searchParams.get("documentId") ?? searchParams.get("orderId") ?? searchParams.get("id")
 
   React.useEffect(() => {
@@ -243,16 +247,26 @@ export default function Page() {
     }
 
     if (!currentStaffId) {
+      if (currentStaffDocumentId) {
+        return orders.filter((order) => order.staff_document_id === currentStaffDocumentId)
+      }
       return []
     }
 
     if (isSalesMarketing) {
-      return orders.filter((order) => order.staff_id === currentStaffId)
+      return orders.filter((order) => {
+        if (order.staff_id === currentStaffId) return true
+        if (currentStaffDocumentId && order.staff_document_id === currentStaffDocumentId) return true
+        return false
+      })
     }
 
     return orders.filter((order) => {
       if (currentStaffId && order.staff_driver_staff_id === currentStaffId) return true
       if (currentStaffDocumentId && order.staff_driver_document_id === currentStaffDocumentId) return true
+      // fallback: some data stored on staff_id instead of staff_driver_id
+      if (currentStaffId && order.staff_id === currentStaffId) return true
+      if (currentStaffDocumentId && order.staff_document_id === currentStaffDocumentId) return true
       return false
     })
   }, [orders, userPosition, userDepartment, currentStaffId, currentStaffDocumentId])
@@ -274,6 +288,38 @@ export default function Page() {
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order)
     setDrawerOpen(true)
+  }
+
+  const getOrderKey = React.useCallback((order: Order) => {
+    return order.documentId ?? String(order.id ?? order.order_no)
+  }, [])
+
+  const toggleOrderSelection = React.useCallback((order: Order) => {
+    const key = getOrderKey(order)
+    setSelectedOrderKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }, [getOrderKey])
+
+  const startSelectionMode = React.useCallback((order: Order) => {
+    setSelectionMode(true)
+    toggleOrderSelection(order)
+  }, [toggleOrderSelection])
+
+  const handleToggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      const next = !prev
+      if (!next) {
+        setSelectedOrderKeys(new Set())
+      }
+      return next
+    })
   }
 
   const handleDeleteOrder = async () => {
@@ -336,6 +382,34 @@ export default function Page() {
     }
   }
 
+  const handleExportInvoice = async () => {
+    if (isGeneratingInvoice) return
+
+    const selectedOrders = visibleOrders.filter((order) =>
+      selectedOrderKeys.has(getOrderKey(order))
+    )
+    const ordersToExport = selectedOrders.length > 0 ? selectedOrders : visibleOrders
+
+    if (ordersToExport.length === 0) {
+      toast.error("Tidak ada data pesanan untuk diekspor")
+      return
+    }
+
+    setIsGeneratingInvoice(true)
+    try {
+      await generateInvoiceOrderPdf(ordersToExport)
+      toast.success("Invoice PDF berhasil dibuat")
+      if (selectionMode) {
+        setSelectedOrderKeys(new Set())
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal membuat invoice PDF"
+      toast.error(message)
+    } finally {
+      setIsGeneratingInvoice(false)
+    }
+  }
+
   return (
     <div className="bg-white w-full mx-auto relative">
         <Toaster position="top-right" richColors />
@@ -362,8 +436,12 @@ export default function Page() {
                   </Link>
                 )}
                 {permissions.canExport && (
-                  <Button className="bg-gray-400 cursor-pointer">
-                    Ekspor Laporan Pesanan
+                  <Button
+                    className="bg-gray-400 cursor-pointer"
+                    onClick={handleExportInvoice}
+                    disabled={isGeneratingInvoice}
+                  >
+                    {isGeneratingInvoice ? "Mengekspor..." : "Ekspor Laporan Pesanan"}
                   </Button>
                 )}
               </div>
@@ -415,13 +493,29 @@ export default function Page() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <IoMdCheckboxOutline className="text-2xl sm:text-3xl" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-9 w-9 ${selectionMode ? "bg-gray-200" : ""}`}
+                  onClick={handleToggleSelectionMode}
+                  aria-label="Pilih data pesanan"
+                >
+                  <IoMdCheckboxOutline className="text-2xl sm:text-3xl" />
+                </Button>
               </div>
             </div>
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-4 py-4">
-          <OrderTable orders={visibleOrders} onOrderClick={handleOrderClick} loading={isRefreshing} />
+          <OrderTable
+            orders={visibleOrders}
+            onOrderClick={handleOrderClick}
+            loading={isRefreshing}
+            selectionMode={selectionMode}
+            selectedOrderKeys={selectedOrderKeys}
+            onToggleSelect={toggleOrderSelection}
+            onStartSelection={startSelectionMode}
+          />
         </div>
 
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -547,6 +641,14 @@ export default function Page() {
           </DrawerContent>
         </Drawer>
     </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <OrderPageInner />
+    </Suspense>
   )
 }
 

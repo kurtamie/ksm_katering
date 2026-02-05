@@ -16,7 +16,7 @@ import { CalendarIcon } from "lucide-react"
 import MapCoordinatePicker from "@/components/custom/Coordinate-input"
 import { Textarea } from "@/components/ui/textarea"
 import React, { useEffect, useState } from "react"
-import { createOrder, fetchCustomers, fetchNextOrderNumber, fetchPackages, getCurrentUser } from "@/features/admin/create-order"
+import { createOrder, fetchCustomers, fetchNextOrderNumber, fetchNextTravelLetterNumber, fetchPackages, getCurrentUser } from "@/features/admin/create-order"
 import { fetchStaffs, type Staff } from "@/features/admin/get-staff"
 import { fetchOrderMenuRecommendations, type MenuRecommendations } from "@/features/admin/get-order-menu"
 import { toast } from "sonner"
@@ -41,6 +41,7 @@ type PackageOption = {
 
 type FormValues = {
   orderNo: string
+  travelLetterNo: string
   staffId: string
   customerId: string
   customerType: string
@@ -78,7 +79,7 @@ type FormValues = {
 type CurrentUser = {
   id: number
   staff?: {
-    id: number
+    id: number | null
     documentId?: string
     position?: string
     department?: string
@@ -184,6 +185,7 @@ export default function Page() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formValues, setFormValues] = useState<FormValues>({
     orderNo: "",
+    travelLetterNo: "",
     staffId: "",
     customerId: "",
     customerType: "",
@@ -499,6 +501,20 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
+    const loadTravelLetterNumber = async () => {
+      try {
+        const nextTravelLetterNo = await fetchNextTravelLetterNumber()
+        setFormValues((prev) => ({ ...prev, travelLetterNo: nextTravelLetterNo || DEFAULT_ORDER_NUMBER }))
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal memuat nomor surat jalan")
+        setFormValues((prev) => ({ ...prev, travelLetterNo: DEFAULT_ORDER_NUMBER }))
+      }
+    }
+
+    loadTravelLetterNumber()
+  }, [])
+
+  useEffect(() => {
     if (!formValues.arriveTime) {
       setFormValues((prev) => (prev.leaveTime === "" ? prev : { ...prev, leaveTime: "" }))
       return
@@ -576,8 +592,6 @@ export default function Page() {
     if (isSubmitting) return
 
     const requiredMap: Array<[keyof FormValues, string]> = [
-      ["orderNo", "Nomor Order"],
-      ["staffId", "Staff Sales"],
       ["customerId", "Customer"],
       ["customerType", "Golongan Customer"],
       ["executorTeam", "Tim Eksekusi"],
@@ -586,18 +600,6 @@ export default function Page() {
       ["packageId", "Paket"],
       ["qty", "Qty"],
       ["sellingPrice", "Harga Jual"],
-      ["brokerFee", "Bayaran Jasa Broker"],
-      ["priceForKsm", "Harga untuk KSM"],
-      ["minSellingPrice", "Harga Jual Minimal"],
-      ["amount", "Jumlah"],
-      ["deliveryCharge", "Delivery Charge"],
-      ["totalAmount", "Jumlah Total"],
-      ["deliveryNote", "Keterangan"],
-      ["arriveTime", "Jam Sampai"],
-      ["leaveTime", "Jam Berangkat"],
-      ["recipientName", "Nama Penerima"],
-      ["recipientPhone", "No. HP Penerima"],
-      ["recipientAddress", "Alamat Pengiriman"],
       ["rice", "Nasi"],
       ["mainDish", "Lauk Utama"],
       ["additionalDish", "Tambahan"],
@@ -607,12 +609,11 @@ export default function Page() {
       ["fruit", "Buah"],
       ["mineralWater", "Air Mineral"],
       ["box", "Kotak"],
-      ["pudding", "Puding"],
-      ["snack", "Snack"],
+      ["arriveTime", "Jam Sampai"],
+      ["recipientName", "Nama Penerima"],
+      ["recipientPhone", "No. HP Penerima"],
+      ["recipientAddress", "Alamat Pengiriman"],
     ]
-    if (!isAdminOperational) {
-      requiredMap.splice(1, 1)
-    }
 
     const missingFields = requiredMap
       .filter(([key]) => !String(formValues[key] ?? "").trim())
@@ -646,6 +647,7 @@ export default function Page() {
       const payload = {
         orderData: {
           order_no: formValues.orderNo,
+          travel_letter_no: formValues.travelLetterNo,
           created_date: createdDate,
           customer_id: customerIdNumber,
           customer_type: formValues.customerType,
@@ -731,19 +733,18 @@ export default function Page() {
           <div className="w-full mb-6 md:mb-8">
             <div className="flex flex-col md:flex-row mb-6 md:mb-8 gap-4 md:gap-8">
               <div className="grid w-full max-w-full items-center gap-1.5">
-                <Label htmlFor="order_no">Nomor Order *</Label>
+                <Label htmlFor="order_no">Nomor Order</Label>
                 <Input
                 type="text"
                 name="order_no"
                 id="order_no"
                 placeholder="Nomor order"
-                required
                 value={formValues.orderNo}
                 readOnly
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5">
-              <Label htmlFor="customer_id">Customer *</Label>
+                <Label htmlFor="customer_id">Customer *</Label>
               <Select
                 value={formValues.customerId}
                 onValueChange={(value) => updateField("customerId", value)}
@@ -789,7 +790,7 @@ export default function Page() {
             
             {isAdminOperational ? (
               <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                <Label htmlFor="staff_id">Staff Sales *</Label>
+                <Label htmlFor="staff_id">Staff Sales</Label>
                 <Select
                   value={formValues.staffId}
                   onValueChange={(value) => updateField("staffId", value)}
@@ -822,7 +823,7 @@ export default function Page() {
               <Input type="text" name="created_by" id="created_by" value={currentMonthLabel} readOnly />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="customer_type">Golongan Customer </Label>
+              <Label htmlFor="customer_type">Golongan Customer *</Label>
               <ToggleGroup
                 type="single"
                 value={formValues.customerType}
@@ -846,7 +847,7 @@ export default function Page() {
               </ToggleGroup>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="executor_name">Tim Eksekusi </Label>
+              <Label htmlFor="executor_name">Tim Eksekusi *</Label>
               <ToggleGroup
                 type="single"
                 value={formValues.executorTeam}
@@ -867,7 +868,7 @@ export default function Page() {
               </ToggleGroup>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="nama">Supplier</Label>
+              <Label htmlFor="nama">Supplier *</Label>
               <Select value={formValues.supplier} onValueChange={(value) => updateField("supplier", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Supplier" />
@@ -885,7 +886,7 @@ export default function Page() {
               </Select>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="product">Produk</Label>
+              <Label htmlFor="product">Produk *</Label>
               <Select value={formValues.product} onValueChange={(value) => updateField("product", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Product" />
@@ -903,7 +904,7 @@ export default function Page() {
               </Select>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="product">Paket</Label>
+              <Label htmlFor="product">Paket *</Label>
               <Select
                 value={formValues.packageId}
                 onValueChange={(value) => updateField("packageId", value)}
@@ -939,19 +940,17 @@ export default function Page() {
                 name="qty"
                 id="qty"
                 placeholder="0"
-                required
                 value={formValues.qty}
                 onChange={(e) => updateField("qty", e.target.value)}
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="selling_price">Harga Jual (dlm ribuan)*</Label>
+              <Label htmlFor="selling_price">Harga Jual (dlm ribuan) *</Label>
               <Input
                 type="number"
                 name="selling_price"
                 id="selling_price"
                 placeholder="0"
-                required
                 value={formValues.sellingPrice}
                 onChange={(e) => updateField("sellingPrice", e.target.value)}
               />
@@ -996,7 +995,6 @@ export default function Page() {
                 name="amount"
                 id="amount"
                 placeholder="0"
-                required
                 value={formValues.amount}
                 onChange={(e) => updateField("amount", e.target.value)}
               />
@@ -1019,7 +1017,6 @@ export default function Page() {
                 name="total_amount"
                 id="total_amount"
                 placeholder="0"
-                required
                 value={formValues.totalAmount}
                 onChange={(e) => updateField("totalAmount", e.target.value)}
               />
@@ -1030,13 +1027,12 @@ export default function Page() {
                 name="delivery_note"
                 id="delivery_note"
                 placeholder="Masukkan keterangan"
-                required
                 value={formValues.deliveryNote}
                 onChange={(e) => updateField("deliveryNote", e.target.value)}
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="rice"> Nasi</Label>
+              <Label htmlFor="rice"> Nasi *</Label>
               <Select value={formValues.rice} onValueChange={(value) => updateField("rice", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih nasi" />
@@ -1055,7 +1051,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.rice}</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="main_dish">Lauk Utama</Label>
+              <Label htmlFor="main_dish">Lauk Utama *</Label>
               <Select value={formValues.mainDish} onValueChange={(value) => updateField("mainDish", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih lauk utama" />
@@ -1076,7 +1072,7 @@ export default function Page() {
               </Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="additional_dish">Tambahan</Label>
+              <Label htmlFor="additional_dish">Tambahan *</Label>
               <Select value={formValues.additionalDish} onValueChange={(value) => updateField("additionalDish", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih lauk tambahan" />
@@ -1095,7 +1091,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.additionalDish}</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="vegetable">Sayur</Label>
+              <Label htmlFor="vegetable">Sayur *</Label>
               <Select value={formValues.vegetable} onValueChange={(value) => updateField("vegetable", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih sayur" />
@@ -1114,7 +1110,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.vegetable}</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="sauce">Sambal</Label>
+              <Label htmlFor="sauce">Sambal *</Label>
               <Select value={formValues.sauce} onValueChange={(value) => updateField("sauce", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih sambal" />
@@ -1133,7 +1129,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.sauce}</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="chip">Kerupuk</Label>
+              <Label htmlFor="chip">Kerupuk *</Label>
               <Select value={formValues.chip} onValueChange={(value) => updateField("chip", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kerupuk" />
@@ -1154,7 +1150,7 @@ export default function Page() {
               </Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="fruit">Buah</Label>
+              <Label htmlFor="fruit">Buah *</Label>
               <Select value={formValues.fruit} onValueChange={(value) => updateField("fruit", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih buah" />
@@ -1173,7 +1169,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.fruit}</Label>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="mineral_water">Air Mineral</Label>
+              <Label htmlFor="mineral_water">Air Mineral *</Label>
               <Select value={formValues.mineralWater} onValueChange={(value) => updateField("mineralWater", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih air mineral" />
@@ -1191,7 +1187,7 @@ export default function Page() {
               </Select>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="box">Kotak</Label>
+              <Label htmlFor="box">Kotak *</Label>
               <Select value={formValues.box} onValueChange={(value) => updateField("box", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kotak" />
@@ -1231,7 +1227,7 @@ export default function Page() {
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="delivery_date">Tanggal Kirim*</Label>
+              <Label htmlFor="delivery_date">Tanggal Kirim</Label>
               <div className="relative flex gap-2">
                 <Input
                   id="date"
@@ -1258,7 +1254,7 @@ export default function Page() {
               </div>
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="arrive_time">Jam Sampai</Label>
+              <Label htmlFor="arrive_time">Jam Sampai *</Label>
               <Select value={formValues.arriveTime} onValueChange={(value) => updateField("arriveTime", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Tentukan jam sampai" />
@@ -1282,43 +1278,39 @@ export default function Page() {
                 name="leave"
                 id="leave"
                 placeholder="Tentukan jam berangkat"
-                required
                 value={formValues.leaveTime}
                 disabled
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="recipient_name">Nama Penerima</Label>
+              <Label htmlFor="recipient_name">Nama Penerima *</Label>
               <Input
                 type="text"
                 name="recipient_name"
                 id="recipient_name"
                 placeholder="Masukkan nama penerima"
-                required
                 value={formValues.recipientName}
                 onChange={(e) => updateField("recipientName", e.target.value)}
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="recipient_phone_no">no. HP Penerima</Label>
+              <Label htmlFor="recipient_phone_no">no. HP Penerima *</Label>
               <Input
                 type="text"
                 name="recipient_phone_no"
                 id="recipient_phone_no"
                 placeholder="Masukkan no penerima"
-                required
                 value={formValues.recipientPhone}
                 onChange={(e) => updateField("recipientPhone", e.target.value)}
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="recipient_address">Alamat Pengiriman</Label>
+              <Label htmlFor="recipient_address">Alamat Pengiriman *</Label>
               <Input
                 type="text"
                 name="recipient_address"
                 id="recipient_address"
                 placeholder="Masukkan alamat penerima"
-                required
                 value={formValues.recipientAddress}
                 onChange={(e) => updateField("recipientAddress", e.target.value)}
               />

@@ -153,6 +153,12 @@ export async function loginUserAction(prevState: any, formData: FormData) {
   const cookieStore = await cookies();
   cookieStore.set("jwt", responseData.jwt, config);
   cookieStore.set("userId", String(responseData.user.id), config);
+  if (responseData.user?.username) {
+    cookieStore.set("user_name", String(responseData.user.username), config);
+  }
+  if (responseData.user?.email) {
+    cookieStore.set("user_email", String(responseData.user.email), config);
+  }
   const userRole = await getUserRoleFromToken(responseData.jwt);
 
   if (userRole?.position) {
@@ -161,6 +167,12 @@ export async function loginUserAction(prevState: any, formData: FormData) {
 
   if (userRole?.department) {
     cookieStore.set("user_department", userRole.department, config);
+  }
+  if (userRole?.staffId) {
+    cookieStore.set("user_staff_id", String(userRole.staffId), config);
+  }
+  if (userRole?.staffDocumentId) {
+    cookieStore.set("user_staff_document_id", userRole.staffDocumentId, config);
   }
 
   redirect("/admin/order");
@@ -172,6 +184,10 @@ export async function logoutAction() {
   cookieStore.set("user_position", "", { ...config, maxAge: 0 });
   cookieStore.set("user_department", "", { ...config, maxAge: 0 });
   cookieStore.set("userId", "", { ...config, maxAge: 0 });
+  cookieStore.set("user_name", "", { ...config, maxAge: 0 });
+  cookieStore.set("user_email", "", { ...config, maxAge: 0 });
+  cookieStore.set("user_staff_id", "", { ...config, maxAge: 0 });
+  cookieStore.set("user_staff_document_id", "", { ...config, maxAge: 0 });
   redirect("/");
 }
 
@@ -196,6 +212,15 @@ async function getUserRoleFromToken(token: string) {
     const data = await response.json();
     const staff = data?.staff?.data ?? data?.staff ?? null;
     const staffAttributes = staff?.attributes ?? staff ?? null;
+    const staffIdRaw =
+      staff?.id ?? staffAttributes?.id ?? data?.staff?.id ?? data?.staff?.data?.id;
+    const staffDocumentIdRaw =
+      staffAttributes?.documentId ??
+      staffAttributes?.document_id ??
+      staff?.documentId ??
+      staff?.document_id ??
+      data?.staff?.documentId ??
+      data?.staff?.document_id;
     const position =
       staffAttributes?.position ?? data?.position ?? null;
     const department =
@@ -209,11 +234,31 @@ async function getUserRoleFromToken(token: string) {
         ? department.toLowerCase()
         : null;
 
-    if (!normalizedPosition && !normalizedDepartment) {
+    const staffId =
+      typeof staffIdRaw === "string" || typeof staffIdRaw === "number"
+        ? Number(staffIdRaw)
+        : null;
+    const normalizedStaffId = Number.isFinite(staffId) ? staffId : null;
+    const staffDocumentId =
+      typeof staffDocumentIdRaw === "string" && staffDocumentIdRaw.trim().length > 0
+        ? staffDocumentIdRaw
+        : null;
+
+    if (
+      !normalizedPosition &&
+      !normalizedDepartment &&
+      !normalizedStaffId &&
+      !staffDocumentId
+    ) {
       return null;
     }
 
-    return { position: normalizedPosition, department: normalizedDepartment };
+    return {
+      position: normalizedPosition,
+      department: normalizedDepartment,
+      staffId: normalizedStaffId,
+      staffDocumentId,
+    };
   } catch (error) {
     console.error("Error fetching user role:", error);
     return null;

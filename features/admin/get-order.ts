@@ -41,6 +41,7 @@ export type Order = {
   box: string
   pudding: string
   snack: string
+  menu_product: string
   latitude: string
   longitude: string
 }
@@ -315,6 +316,12 @@ const normalizeOrder = (item: any): Order => {
 
     snack: withFallback(menuAttrs?.snack),
 
+    menu_product: withFallback(
+      menuAttrs?.product ||
+      menuAttrs?.product_name ||
+      menuAttrs?.productName
+    ),
+
     latitude: withFallback(attributes.latitude),
 
     longitude: withFallback(attributes.longitude),
@@ -358,7 +365,11 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
       return []
     }
 
-    const fetchOrdersFromApi = async (applyStaffFilter: boolean, applyDriverFilter: boolean) => {
+    const fetchOrdersFromApi = async (
+      applyStaffFilter: boolean,
+      applyDriverFilter: boolean,
+      staffFilterMode: "auto" | "id" | "documentId" = "auto"
+    ) => {
       const url = new URL('/api/orders', apiBaseUrl)
 
       url.searchParams.set('populate[customer_id][populate]', '*')
@@ -367,24 +378,20 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
       url.searchParams.set('populate[package_id][populate]', '*')
       url.searchParams.set('populate[order_details][populate]', '*')
       url.searchParams.set('populate[order_menus][populate]', '*')
-      if (applyStaffFilter) {
-        if (staffId) {
-          url.searchParams.set('filters[$or][0][staff_id][id][$eq]', String(staffId))
-          url.searchParams.set('filters[$or][2][staff_id][$eq]', String(staffId))
-        }
-        if (staffDocumentId) {
-          url.searchParams.set('filters[$or][1][staff_id][documentId][$eq]', staffDocumentId)
-          url.searchParams.set('filters[$or][3][staff_document_id][$eq]', staffDocumentId)
+      const applyStaff = applyStaffFilter && !applyDriverFilter
+      const applyDriver = applyDriverFilter
+      if (applyStaff) {
+        if ((staffFilterMode === "id" || staffFilterMode === "auto") && staffId) {
+          url.searchParams.set('filters[staff_id][id][$eq]', String(staffId))
+        } else if ((staffFilterMode === "documentId" || staffFilterMode === "auto") && staffDocumentId) {
+          url.searchParams.set('filters[staff_id][documentId][$eq]', staffDocumentId)
         }
       }
-      if (applyDriverFilter) {
+      if (applyDriver) {
         if (staffId) {
-          url.searchParams.set('filters[$or][0][staff_driver_id][id][$eq]', String(staffId))
-          url.searchParams.set('filters[$or][2][staff_driver_id][$eq]', String(staffId))
-        }
-        if (staffDocumentId) {
-          url.searchParams.set('filters[$or][1][staff_driver_id][documentId][$eq]', staffDocumentId)
-          url.searchParams.set('filters[$or][3][staff_driver_document_id][$eq]', staffDocumentId)
+          url.searchParams.set('filters[staff_driver_id][id][$eq]', String(staffId))
+        } else if (staffDocumentId) {
+          url.searchParams.set('filters[staff_driver_id][documentId][$eq]', staffDocumentId)
         }
       }
 
@@ -423,8 +430,26 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
       }
       orders = await fetchOrdersFromApi(shouldLimitToStaff, false)
     }
+
+    if (shouldLimitToStaff && orders.length === 0 && staffDocumentId) {
+      orders = await fetchOrdersFromApi(shouldLimitToStaff, shouldLimitToDriver, "documentId")
+    }
+
+    if (shouldLimitToDriver && orders.length === 0 && staffDocumentId) {
+      orders = await fetchOrdersFromApi(shouldLimitToStaff, shouldLimitToDriver, "documentId")
+    }
+
     if (shouldLimitToDriver && orders.length === 0) {
       orders = await fetchOrdersFromApi(shouldLimitToStaff, false)
+    }
+
+    // fallback: some orders store driver on staff_id instead of staff_driver_id
+    if (shouldLimitToDriver && orders.length === 0) {
+      try {
+        orders = await fetchOrdersFromApi(true, false)
+      } catch (error) {
+        orders = await fetchOrdersFromApi(true, false, "documentId")
+      }
     }
     
     console.log('Orders before normalize:', orders) 

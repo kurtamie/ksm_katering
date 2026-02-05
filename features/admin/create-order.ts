@@ -18,6 +18,7 @@ type PackageOption = {
 type OrderPayload = {
   orderData: {
     order_no: string
+    travel_letter_no: string
     created_date: string
     customer_id: number
     customer_type: string
@@ -70,7 +71,7 @@ type CurrentUser = {
   username: string
   email: string
   staff?: {
-    id: number
+    id: number | null
     documentId?: string
     position?: string
     department?: string
@@ -98,6 +99,58 @@ const parseDocumentId = (value: unknown): string | null => {
   if (value === null || value === undefined) return null
   const stringValue = String(value).trim()
   return stringValue.length > 0 ? stringValue : null
+}
+
+const getCookie = (name: string): string | null => {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name}=([^;]*)`)
+  )
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+const getCurrentUserFromCookie = (): CurrentUser | null => {
+  const userIdRaw = getCookie('userId')
+  if (!userIdRaw || userIdRaw.trim() === '') return null
+  const userId = parseId(userIdRaw)
+  if (!userId) return null
+
+  const username = getCookie('user_name') ?? ''
+  const email = getCookie('user_email') ?? ''
+  const position = getCookie('user_position')?.toLowerCase()
+  const department = getCookie('user_department')?.toLowerCase()
+  const staffIdRaw = getCookie('user_staff_id')
+  const staffDocumentIdRaw = getCookie('user_staff_document_id')
+  const staffId =
+    staffIdRaw && staffIdRaw.trim() !== '' ? parseId(staffIdRaw) : null
+  const staffDocumentId =
+    staffDocumentIdRaw && staffDocumentIdRaw.trim() !== ''
+      ? parseDocumentId(staffDocumentIdRaw)
+      : null
+  const isStaffRequired =
+    (position === 'sales' && department === 'marketing') ||
+    (position === 'driver' && department === 'delivery')
+
+  if (isStaffRequired && !staffId && !staffDocumentId) {
+    return null
+  }
+
+  const user: CurrentUser = {
+    id: userId,
+    username,
+    email,
+  }
+
+  if (staffId || staffDocumentId || position || department) {
+    user.staff = {
+      id: staffId ?? null,
+      documentId: staffDocumentId ?? undefined,
+      position,
+      department,
+    }
+  }
+
+  return user
 }
 
 const getRelationId = (relation: any): number | null => {
@@ -138,6 +191,11 @@ const getRelationDocumentId = (relation: any): string | null => {
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   try {
+    const cookieUser = getCurrentUserFromCookie()
+    if (cookieUser) {
+      return cookieUser
+    }
+
     const url = new URL('/api/users/me', window.location.origin)
     url.searchParams.set('populate', 'staff')
     
@@ -165,7 +223,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       const staffData = data.staff.data ?? data.staff
       const staffAttributes = staffData?.attributes ?? staffData
       user.staff = {
-        id: staffData?.id ?? data.staff.id ?? data.staff.data?.id,
+        id: staffData?.id ?? data.staff.id ?? data.staff.data?.id ?? null,
         documentId:
           typeof staffAttributes?.documentId === 'string'
             ? staffAttributes.documentId
@@ -342,6 +400,44 @@ export async function fetchNextOrderNumber(): Promise<string> {
   } catch (error) {
     console.error('Error fetching next order number:', error)
     throw new Error('Gagal mengambil nomor order berikutnya')
+  }
+}
+
+export async function fetchNextTravelLetterNumber(): Promise<string> {
+  try {
+    const url = new URL('/api/orders', apiBaseUrl)
+    url.searchParams.set('pagination[pageSize]', '1')
+    url.searchParams.set('sort[0]', 'travel_letter_no:desc')
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json() as any
+
+    const getItem = () => {
+      if (Array.isArray(data?.data) && data.data.length > 0) return data.data[0]
+      if (Array.isArray(data?.orders) && data.orders.length > 0) return data.orders[0]
+      if (Array.isArray(data) && data.length > 0) return data[0]
+      return null
+    }
+
+    const firstItem = getItem()
+    const attributes = firstItem?.attributes ?? firstItem
+    const lastTravelLetterNo =
+      attributes?.travel_letter_no ?? attributes?.travelLetterNo ?? ''
+
+    return getNextOrderNumber(lastTravelLetterNo)
+  } catch (error) {
+    console.error('Error fetching next travel letter number:', error)
+    throw new Error('Gagal mengambil nomor surat jalan berikutnya')
   }
 }
 
