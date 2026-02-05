@@ -8,14 +8,14 @@ import {
 } from "@/app/data/services/auth-service";
 import { getStrapiURL } from "@/lib/utils";
 
+const cookieDomain = process.env.COOKIE_DOMAIN?.trim();
+
 const config = {
   maxAge: 60 * 60 * 24 * 7, // 1 week
   path: "/",
-  domain: process.env.NODE_ENV === "production" 
-    ? "ksm-katering.id" 
-    : "localhost",
+  domain: cookieDomain && cookieDomain.length > 0 ? cookieDomain : undefined,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const
+  sameSite: "lax" as const,
 };
 
 const schemaRegister = z.object({
