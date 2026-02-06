@@ -139,7 +139,7 @@ export default function Page({ params }: PageProps) {
               <div className="p-6">
                 <div className="grid gap-6 sm:grid-cols-2">
                   <FormField label="ID PESANAN" value={order.order_no} />
-                  <FormField label="NO SURAT JALAN" value={order.order_no.split('ORD')[1] || order.order_no} />
+                  <FormField label="NO SURAT JALAN" value={order.travel_letter_no.split('ORD')[1] || order.travel_letter_no} />
                   <FormField label="PEMESAN" value={order.customer} />
                   <FormField label="NAMA PENERIMA" value={order.customer} />
                 </div>

@@ -15,6 +15,7 @@ export type Order = {
   package: string
   driver: string
   staff_driver_id: string
+  travel_letter_no: string
   qty: string
   price_ksm: string
   price_send: string
@@ -221,6 +222,10 @@ const normalizeOrder = (item: any): Order => {
       attributes.customer_type || 
       customerAttrs?.customer_type ||
       customerAttrs?.type
+    ),
+
+    travel_letter_no: withFallback(
+      attributes.travel_letter_no
     ),
     
     phone: withFallback(

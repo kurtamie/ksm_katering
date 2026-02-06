@@ -135,6 +135,14 @@ const normalizeCoordinate = (lat: unknown, lng: unknown): Coordinate => {
   }
 }
 
+const extractRelationIds = (relation: any): number[] => {
+  const data = getRelationData(relation)
+  const ids = data
+    .map((item: any) => parseNumber(item?.id ?? item?.attributes?.id ?? item))
+    .filter((id: number | null): id is number => typeof id === 'number')
+  return Array.from(new Set(ids))
+}
+
 export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdit> {
   const identifier = documentId?.trim()
 
@@ -243,6 +251,34 @@ const fetchOrderIdByDocumentId = async (documentId: string): Promise<number | nu
   return parseNumber(data?.id ?? data?.attributes?.id)
 }
 
+const fetchOrderRelations = async (documentId: string) => {
+  const url = new URL(`/api/orders/${documentId}`, apiBaseUrl)
+  url.searchParams.set('populate[order_details][populate]', '*')
+  url.searchParams.set('populate[order_menus][populate]', '*')
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  if (!response.ok) {
+    return {
+      orderId: null as number | null,
+      orderDetailIds: [] as number[],
+      orderMenuIds: [] as number[],
+    }
+  }
+
+  const result = await response.json().catch(() => ({}))
+  const data = result?.data ?? result
+  const attributes = getAttributes(data)
+
+  return {
+    orderId: parseNumber(data?.id ?? attributes.id),
+    orderDetailIds: extractRelationIds(attributes.order_details),
+    orderMenuIds: extractRelationIds(attributes.order_menus),
+  }
+}
+
 const upsertRelated = async (
   endpoint: string,
   data: Record<string, any>,
@@ -265,14 +301,20 @@ const upsertRelated = async (
     return { ok: true }
   }
 
-  if (!existingId) return
+  if (existingId) {
+    const putUrl = new URL(`${endpoint}/${existingId}`, apiBaseUrl)
+    const putResult = await doRequest(putUrl, 'PUT')
 
-  const putUrl = new URL(`${endpoint}/${existingId}`, apiBaseUrl)
-  const putResult = await doRequest(putUrl, 'PUT')
+    if (putResult.ok) return
+    if (putResult.status !== 404) {
+      throw new Error(putResult.message)
+    }
+  }
 
-  if (putResult.ok) return
-  if (putResult.status !== 404) {
-    throw new Error(putResult.message)
+  const postUrl = new URL(endpoint, apiBaseUrl)
+  const postResult = await doRequest(postUrl, 'POST')
+  if (!postResult.ok) {
+    throw new Error(postResult.message)
   }
 }
 
@@ -289,6 +331,22 @@ export async function updateOrder(documentId: string, payload: UpdateOrderPayloa
       orderId = await fetchOrderIdByDocumentId(identifier)
     }
 
+    let orderDetailIds = payload.orderDetailId ? [payload.orderDetailId] : []
+    let orderMenuIds = payload.orderMenuId ? [payload.orderMenuId] : []
+
+    if (!orderId || orderDetailIds.length === 0 || orderMenuIds.length === 0) {
+      const relations = await fetchOrderRelations(identifier)
+      if (!orderId) {
+        orderId = relations.orderId
+      }
+      if (orderDetailIds.length === 0) {
+        orderDetailIds = relations.orderDetailIds
+      }
+      if (orderMenuIds.length === 0) {
+        orderMenuIds = relations.orderMenuIds
+      }
+    }
+
     if (!orderId) {
       return { success: false, error: 'Gagal menemukan ID pesanan untuk relasi detail/menu.' }
     }
@@ -300,6 +358,8 @@ export async function updateOrder(documentId: string, payload: UpdateOrderPayloa
       body: JSON.stringify({
         data: {
           ...payload.orderData,
+          order_details: orderDetailIds.length > 0 ? orderDetailIds : undefined,
+          order_menus: orderMenuIds.length > 0 ? orderMenuIds : undefined,
         },
       }),
     })
@@ -312,18 +372,21 @@ export async function updateOrder(documentId: string, payload: UpdateOrderPayloa
 
     await orderResponse.json().catch(() => ({}))
 
-    if (payload.orderDetailData && payload.orderDetailId) {
+    const orderDetailId = payload.orderDetailId ?? orderDetailIds[0] ?? null
+    const orderMenuId = payload.orderMenuId ?? orderMenuIds[0] ?? null
+
+    if (payload.orderDetailData) {
       await upsertRelated('/api/order-details', {
         ...payload.orderDetailData,
         order_id: orderId ? [orderId] : undefined,
-      }, payload.orderDetailId)
+      }, orderDetailId)
     }
 
-    if (payload.orderMenuData && payload.orderMenuId) {
+    if (payload.orderMenuData) {
       await upsertRelated('/api/order-menus', {
         ...payload.orderMenuData,
         order_id: orderId ? [orderId] : undefined,
-      }, payload.orderMenuId)
+      }, orderMenuId)
     }
 
     return { success: true }
