@@ -894,6 +894,7 @@ export default function Page() {
                 variant="outline"
                 spacing={2}
                 size="sm"
+                className="grid grid-cols-2 gap-2 md:grid-cols-4"
               >
                 <ToggleGroupItem value="pemerintah" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
                   Pemerintah
@@ -918,6 +919,7 @@ export default function Page() {
                 variant="outline"
                 spacing={2}
                 size="sm"
+                className="grid grid-cols-2 gap-2 md:grid-cols-3"
               >
                 <ToggleGroupItem value="tim_kotak" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
                   Tim Kotak

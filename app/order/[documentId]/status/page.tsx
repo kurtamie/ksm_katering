@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { useUser } from "@/components/providers/user-provider"
 import { fetchOrderByDocumentId, type Order } from "@/features/admin/get-order"
 import { updateOrderStep } from "@/features/admin/update-order-step"
 
@@ -36,6 +37,7 @@ const getNextStep = (currentStep: string): string | null => {
 
 export default function Page({ params }: PageProps) {
   const { documentId } = React.use(params)
+  const { user } = useUser()
   const [order, setOrder] = React.useState<Order | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
@@ -58,9 +60,20 @@ export default function Page({ params }: PageProps) {
     }
   }, [documentId])
 
+  const hasAccess = React.useMemo(() => {
+    if (!user?.position || !user?.department) return false
+    const allowedDepartments = new Set(["operational", "delivery", "developer"])
+    const allowedPositions = new Set(["supervisor", "driver", "developer"])
+    return (
+      allowedDepartments.has(user.department) &&
+      allowedPositions.has(user.position)
+    )
+  }, [user])
+
   React.useEffect(() => {
+    if (!hasAccess) return
     loadOrder()
-  }, [loadOrder])
+  }, [loadOrder, hasAccess])
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -114,6 +127,21 @@ export default function Page({ params }: PageProps) {
   const currentStep = order ? normalizeStepValue(order.delivery_status) : ""
   const nextStep = currentStep ? getNextStep(currentStep) : null
   const showImageUpload = currentStep === "send" && nextStep === "success"
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8 text-gray-800">
+        <div className="mx-auto w-full max-w-2xl">
+          <h1 className="text-center text-2xl font-bold">QR Valid</h1>
+          <div className="mt-6 text-center text-sm text-gray-600">
+            {user
+              ? "anda bukan staff yang terkait di perubahan status order"
+              : "Memuat data pengguna..."}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8 text-gray-800">
