@@ -163,16 +163,26 @@ export async function loginUserAction(prevState: any, formData: FormData) {
 
   if (userRole?.position) {
     cookieStore.set("user_position", userRole.position, config);
+  } else {
+    cookieStore.set("user_position", "", { ...config, maxAge: 0 });
   }
 
   if (userRole?.department) {
     cookieStore.set("user_department", userRole.department, config);
+  } else {
+    cookieStore.set("user_department", "", { ...config, maxAge: 0 });
   }
+
   if (userRole?.staffId) {
     cookieStore.set("user_staff_id", String(userRole.staffId), config);
+  } else {
+    cookieStore.set("user_staff_id", "", { ...config, maxAge: 0 });
   }
+
   if (userRole?.staffDocumentId) {
     cookieStore.set("user_staff_document_id", userRole.staffDocumentId, config);
+  } else {
+    cookieStore.set("user_staff_document_id", "", { ...config, maxAge: 0 });
   }
 
   redirect("/admin/order");

@@ -292,7 +292,7 @@ function page() {
     return date
   }
 
-  const parseMoneyValue = (...values: Array<unknown>) => {
+  const parseMoneyValue = (scale: number, ...values: Array<unknown>) => {
     for (const value of values) {
       if (value === null || value === undefined) continue
       const text = String(value)
@@ -300,7 +300,7 @@ function page() {
       if (digits.length === 0) continue
       const numeric = Number(digits)
       if (Number.isFinite(numeric)) {
-        return numeric
+        return numeric * scale
       }
     }
     return 0
@@ -450,7 +450,7 @@ function page() {
       )
 
       parsedOrdersByMonth.forEach((order) => {
-        const amountNumeric = parseMoneyValue(order.price_total, order.amount, order.price_ksm)
+        const amountNumeric = parseMoneyValue(1000, order.price_total, order.amount, order.price_ksm)
         const key = String(order.customer_type ?? "").toLowerCase() as ChartTypeKey
         if (!Object.prototype.hasOwnProperty.call(chartTypeConfig, key)) return
         sums[key] += amountNumeric
@@ -473,7 +473,7 @@ function page() {
       if (Number.isNaN(date.getTime())) return
       if (date.getFullYear() !== selectedYearNumber) return
       const monthIndex = date.getMonth()
-      const amountNumeric = parseMoneyValue(order.price_total, order.amount, order.price_ksm)
+      const amountNumeric = parseMoneyValue(1000, order.price_total, order.amount, order.price_ksm)
       const key = String(order.customer_type ?? "").toLowerCase() as ChartTypeKey
       if (!Object.prototype.hasOwnProperty.call(chartTypeConfig, key)) return
       if (!byMonth[monthIndex]) return

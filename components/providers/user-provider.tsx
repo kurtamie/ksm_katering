@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 
 export type UserSession = {
   id?: number | null
@@ -122,6 +123,7 @@ type UserProviderProps = {
 export function UserProvider({ children, initialUser = null }: UserProviderProps) {
   const [user, setUserState] = useState<UserSession | null>(initialUser)
   const lastFetchedKeyRef = useRef<number | null>(null)
+  const pathname = usePathname()
 
   useEffect(() => {
     const cookieUser = readUserFromCookies()
@@ -147,7 +149,7 @@ export function UserProvider({ children, initialUser = null }: UserProviderProps
       setUserState(cookieUser)
       lastFetchedKeyRef.current = null
     }
-  }, [user])
+  }, [user, pathname])
 
   useEffect(() => {
     if (user?.position && user?.department) return
