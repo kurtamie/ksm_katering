@@ -4,16 +4,16 @@
   "description": "Kateringku, ya KSM Katering",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#E13237",
+  "theme_color": "#E13237",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icons/logopt-ksm.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/logopt-ksm.png",
       "sizes": "512x512",
       "type": "image/png"
     }
