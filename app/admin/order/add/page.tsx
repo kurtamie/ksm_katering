@@ -35,6 +35,7 @@ type CustomerOption = {
 type PackageOption = {
   id: number
   package_name: string
+  subname?: string
   product?: string
   price?: string
 }
@@ -152,6 +153,43 @@ const normalizeDocumentId = (value: unknown): string | null => {
   if (value === null || value === undefined) return null
   const raw = String(value).trim()
   return raw.length > 0 ? raw : null
+}
+
+const formatPackageLabel = (pkg: PackageOption) => {
+  const name = pkg.package_name?.trim() ?? ""
+  const subname = pkg.subname?.trim()
+  const base = name || `Paket ${pkg.id}`
+  return subname ? `${base} - ${subname}` : base
+}
+
+const getMainDishFromSubname = (subname: string | null | undefined, dishes: string[]) => {
+  if (!subname) return ""
+  const normalized = subname.toLowerCase()
+  const findDish = (keyword: string) =>
+    dishes.find((dish) => dish.toLowerCase().includes(keyword)) ?? ""
+
+  if (normalized.includes("ayam")) return findDish("ayam")
+  if (normalized.includes("ikan")) return findDish("ikan")
+  if (normalized.includes("daging")) return findDish("daging")
+  if (normalized.includes("seafood")) return findDish("seafood")
+
+  return ""
+}
+
+const filterMainDishesBySubname = (subname: string | null | undefined, dishes: string[]) => {
+  if (!subname) return dishes
+  const normalized = subname.toLowerCase()
+  const keywords: string[] = []
+  if (normalized.includes("ayam")) keywords.push("ayam")
+  if (normalized.includes("ikan")) keywords.push("ikan")
+  if (normalized.includes("daging")) keywords.push("daging")
+  if (normalized.includes("seafood")) keywords.push("seafood")
+
+  if (keywords.length === 0) return dishes
+
+  return dishes.filter((dish) =>
+    keywords.some((keyword) => dish.toLowerCase().includes(keyword))
+  )
 }
 
 export default function Page() {
@@ -377,6 +415,10 @@ export default function Page() {
   const filteredPackageOptions = normalizedProduct
     ? packageOptions.filter((pkg) => pkg.product?.trim().toLowerCase() === normalizedProduct)
     : packageOptions
+  const selectedPackage = formValues.packageId
+    ? packageOptions.find((pkg) => pkg.id.toString() === formValues.packageId)
+    : undefined
+  const filteredMainDishes = filterMainDishesBySubname(selectedPackage?.subname, mainDishes)
 
   const selectedStaffId = normalizeId(formValues.staffId)
   const currentStaffId = normalizeId(currentUser?.staff?.id ?? null)
@@ -555,6 +597,27 @@ export default function Page() {
 
     setFormValues((prev) => (prev.sellingPrice === nextSellingPrice ? prev : { ...prev, sellingPrice: nextSellingPrice }))
   }, [formValues.packageId, packageOptions])
+
+  useEffect(() => {
+    if (!formValues.packageId) return
+
+    const selectedPackage = packageOptions.find((pkg) => pkg.id.toString() === formValues.packageId)
+    const nextMainDish = getMainDishFromSubname(selectedPackage?.subname, mainDishes)
+
+    if (!nextMainDish) return
+
+    setFormValues((prev) => (prev.mainDish === nextMainDish ? prev : { ...prev, mainDish: nextMainDish }))
+  }, [formValues.packageId, packageOptions])
+
+  useEffect(() => {
+    if (!formValues.mainDish) return
+    if (filteredMainDishes.length === 0) return
+
+    const isValid = filteredMainDishes.some((dish) => dish === formValues.mainDish)
+    if (!isValid) {
+      setFormValues((prev) => ({ ...prev, mainDish: "" }))
+    }
+  }, [filteredMainDishes, formValues.mainDish])
 
   useEffect(() => {
     const qtyNumber = Number(formValues.qty)
@@ -926,7 +989,7 @@ export default function Page() {
                     <SelectLabel>Paket</SelectLabel>
                     {filteredPackageOptions.map((packageses) => (
                       <SelectItem key={packageses.id} value={packageses.id.toString()}>
-                        {packageses.package_name}
+                        {formatPackageLabel(packageses)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -1059,7 +1122,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Lauk Utama</SelectLabel>
-                    {mainDishes.map((maindish) => (
+                    {filteredMainDishes.map((maindish) => (
                       <SelectItem key={maindish} value={maindish}>
                         {maindish}
                       </SelectItem>
@@ -1319,7 +1382,7 @@ export default function Page() {
               <MapCoordinatePicker value={coordinates} onChange={setCoordinates} />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-            <Button className="w-full md:w-auto bg-gray-400 text-white" onClick={handleSubmit} disabled={isSubmitting}>
+            <Button className="w-full md:w-auto text-white cursor-pointer" onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting ? "Menyimpan..." : "SIMPAN"}
             </Button>
           </div>

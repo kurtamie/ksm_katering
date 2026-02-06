@@ -1136,7 +1136,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <Button className="w-full md:w-auto bg-gray-400 text-white" onClick={handleSubmit} disabled={isSubmitting || isLoadingOrder}>
+            <Button className="w-full md:w-auto text-white cursor-pointer" onClick={handleSubmit} disabled={isSubmitting || isLoadingOrder}>
               {isSubmitting ? "Menyimpan..." : "SIMPAN PERUBAHAN"}
             </Button>
           </div>

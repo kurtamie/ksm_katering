@@ -11,6 +11,7 @@ type CustomerOption = {
 type PackageOption = {
   id: number
   package_name: string
+  subname?: string
   product?: string
   price?: string
 }
@@ -347,6 +348,7 @@ export async function fetchPackages(): Promise<PackageOption[]> {
   const normalizePackage = (item: any): PackageOption => ({
     id: item.id,
     package_name: item.package_name ?? item.attributes?.package_name ?? '',
+    subname: item.subname ?? item.attributes?.subname ?? '',
     product: item.product ?? item.attributes?.product ?? item.product_name ?? item.attributes?.product_name ?? '',
     price: item.price ?? item.attributes?.price ?? '',
   })
