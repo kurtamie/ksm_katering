@@ -105,7 +105,7 @@ export default function Header() {
 
               <DropdownMenuContent className="my-4 bg-white dark:bg-gray-800 shadow-lg rounded-md">
                 <DropdownMenuRadioItem value="profile" className="gap-3">
-                  <Link href="/profile" className="flex items-center gap-3">
+                  <Link href="/admin/account" className="flex items-center gap-3">
                     <AiOutlineUser className="text-xl" /> Akun Saya
                   </Link>
                 </DropdownMenuRadioItem>

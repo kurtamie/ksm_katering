@@ -46,8 +46,8 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ]
 
-const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/dish", "/admin/menu"]
-const DEFAULT_ALLOWED_ROUTES = ["/admin/order"]
+const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/dish", "/admin/menu", "/admin/account"]
+const DEFAULT_ALLOWED_ROUTES = ["/admin/order", "/admin/account"]
 
 const ROLE_ROUTE_ACCESS = [
   {

@@ -14,10 +14,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { useMemo } from "react";
 import { getAllowedRoutes, NAV_ITEMS } from "@/components/layout/nav-config";
 import { useUser } from "@/components/providers/user-provider";
+import { logoutAction } from "@/app/data/actions/auth-actions";
+import { MdLogout } from "react-icons/md";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -49,7 +52,7 @@ export function AppSidebar() {
             <div className='bg-[#8D0000] dark:bg-[#8D0000]'>
         <SidebarGroup className="md:hidden">
           <SidebarGroupContent>
-              <div className="flex items-center gap-3 px-4 py-3">
+              <Link href="/admin/account" className="flex items-center gap-3 px-4 py-3">
                 <Image
                   className="!cursor-pointer !rounded-full border-gray-200 border-2 !w-10 !h-10 shrink-0"
                   src={Profile}
@@ -61,7 +64,7 @@ export function AppSidebar() {
                   <span className="text-sm  text-white font-semibold">{userName}</span>
                   <span className="text-xs text-white">{userEmail}</span>
                 </div>
-              </div>
+              </Link>
           </SidebarGroupContent>
         </SidebarGroup>
             </div>
@@ -88,6 +91,17 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="md:hidden">
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+          >
+            <MdLogout className="text-lg" />
+            Keluar
+          </button>
+        </form>
+      </SidebarFooter>
     </Sidebar>
   );
 }

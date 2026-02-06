@@ -25,6 +25,12 @@ const parseNumber = (value: string | null): number | null => {
   return Number.isFinite(numeric) ? numeric : null
 }
 
+const normalizeRole = (value: string | null): string | null => {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed.toLowerCase() : null
+}
+
 const readCookie = (name: string): string | null => {
   if (typeof document === "undefined") return null
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
@@ -37,8 +43,8 @@ const readUserFromCookies = (): UserSession | null => {
 
   const name = readCookie("user_name") ?? "User"
   const email = readCookie("user_email") ?? ""
-  const position = readCookie("user_position")?.toLowerCase() ?? null
-  const department = readCookie("user_department")?.toLowerCase() ?? null
+  const position = normalizeRole(readCookie("user_position"))
+  const department = normalizeRole(readCookie("user_department"))
   const staffId = parseNumber(readCookie("user_staff_id"))
   const staffDocumentId = readCookie("user_staff_document_id")
 
@@ -79,12 +85,8 @@ const normalizeUserFromMe = (payload: any): UserSession | null => {
   const position = staffAttributes?.position ?? user?.position ?? null
   const department = staffAttributes?.department ?? user?.department ?? null
 
-  const normalizedPosition =
-    typeof position === "string" && position.trim().length > 0 ? position.toLowerCase() : null
-  const normalizedDepartment =
-    typeof department === "string" && department.trim().length > 0
-      ? department.toLowerCase()
-      : null
+  const normalizedPosition = normalizeRole(position)
+  const normalizedDepartment = normalizeRole(department)
 
   const staffId =
     typeof staffIdRaw === "string" || typeof staffIdRaw === "number" ? Number(staffIdRaw) : null
@@ -119,21 +121,40 @@ type UserProviderProps = {
 
 export function UserProvider({ children, initialUser = null }: UserProviderProps) {
   const [user, setUserState] = useState<UserSession | null>(initialUser)
-  const hasFetchedRef = useRef(false)
+  const lastFetchedKeyRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (user) return
     const cookieUser = readUserFromCookies()
-    if (cookieUser) {
+    if (!cookieUser) {
+      if (user) {
+        setUserState(null)
+      }
+      lastFetchedKeyRef.current = null
+      return
+    }
+
+    const hasChanged =
+      !user ||
+      user.id !== cookieUser.id ||
+      user.name !== cookieUser.name ||
+      user.email !== cookieUser.email ||
+      user.position !== cookieUser.position ||
+      user.department !== cookieUser.department ||
+      user.staffId !== cookieUser.staffId ||
+      user.staffDocumentId !== cookieUser.staffDocumentId
+
+    if (hasChanged) {
       setUserState(cookieUser)
+      lastFetchedKeyRef.current = null
     }
   }, [user])
 
   useEffect(() => {
-    if (hasFetchedRef.current) return
     if (user?.position && user?.department) return
 
-    hasFetchedRef.current = true
+    const fetchKey = user?.id ?? -1
+    if (lastFetchedKeyRef.current === fetchKey) return
+    lastFetchedKeyRef.current = fetchKey
 
     const fetchUser = async () => {
       try {
@@ -168,7 +189,15 @@ export function UserProvider({ children, initialUser = null }: UserProviderProps
   }, [user])
 
   const setUser = useCallback((next: UserSession | null) => {
-    setUserState(next)
+    if (!next) {
+      setUserState(null)
+      return
+    }
+    setUserState({
+      ...next,
+      position: normalizeRole(next.position ?? null),
+      department: normalizeRole(next.department ?? null),
+    })
   }, [])
 
   const value = useMemo(() => ({ user, setUser }), [user, setUser])

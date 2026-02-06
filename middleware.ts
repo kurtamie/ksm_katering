@@ -4,8 +4,8 @@ import type { NextRequest } from "next/server";
 const PROTECTED_PREFIXES = ["/admin", "/dashboard"];
 const AUTH_PREFIX = "/auth";
 
-const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/dish", "/admin/menu"];
-const DEFAULT_ALLOWED_ROUTES = ["/admin/order"];
+const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/dish", "/admin/menu", "/admin/account"];
+const DEFAULT_ALLOWED_ROUTES = ["/admin/order", "/admin/account"];
 const ROLE_ROUTE_ACCESS = [
   {
     position: "admin_finance",
