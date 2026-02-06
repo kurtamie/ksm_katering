@@ -10,8 +10,9 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
-const DISMISS_KEY = "pwa-install-dismissed-at";
-const DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
+type WindowWithPwaPrompt = Window & {
+  __pwaDeferredPrompt?: BeforeInstallPromptEvent | null;
+};
 
 function isStandaloneMode() {
   return (
@@ -24,32 +25,33 @@ export default function PwaPrompt() {
   const deferredPromptRef = React.useRef<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = React.useState(false);
   const [isInstalled, setIsInstalled] = React.useState(false);
-  const [isDismissed, setIsDismissed] = React.useState(false);
 
   React.useEffect(() => {
-    setIsInstalled(isStandaloneMode());
-
-    const dismissedAt = window.localStorage.getItem(DISMISS_KEY);
-    if (dismissedAt) {
-      const diff = Date.now() - Number(dismissedAt);
-      if (!Number.isNaN(diff) && diff < DISMISS_TTL_MS) {
-        setIsDismissed(true);
-      } else {
-        window.localStorage.removeItem(DISMISS_KEY);
-      }
-    }
+    const installedNow = isStandaloneMode();
+    setIsInstalled(installedNow);
 
     const handleBeforeInstallPrompt = (event: Event) => {
-      if (isInstalled || isDismissed) return;
       event.preventDefault();
-      deferredPromptRef.current = event as BeforeInstallPromptEvent;
-      setCanInstall(true);
+      const promptEvent = event as BeforeInstallPromptEvent;
+      deferredPromptRef.current = promptEvent;
+      (window as WindowWithPwaPrompt).__pwaDeferredPrompt = promptEvent;
+
+      if (!installedNow) {
+        setCanInstall(true);
+      }
     };
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setCanInstall(false);
+      (window as WindowWithPwaPrompt).__pwaDeferredPrompt = null;
     };
+
+    const existingPrompt = (window as WindowWithPwaPrompt).__pwaDeferredPrompt;
+    if (existingPrompt && !installedNow) {
+      deferredPromptRef.current = existingPrompt;
+      setCanInstall(true);
+    }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
@@ -61,29 +63,30 @@ export default function PwaPrompt() {
       );
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, [isDismissed, isInstalled]);
+  }, [isInstalled]);
 
   const install = async () => {
     if (!deferredPromptRef.current) return;
     await deferredPromptRef.current.prompt();
     const { outcome } = await deferredPromptRef.current.userChoice;
-    if (outcome === "dismissed") {
-      hidePrompt();
+    if (outcome !== "accepted") {
+      return;
     }
+
+    setIsInstalled(true);
     deferredPromptRef.current = null;
+    (window as WindowWithPwaPrompt).__pwaDeferredPrompt = null;
     setCanInstall(false);
   };
 
   const hidePrompt = () => {
-    window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
-    setIsDismissed(true);
     setCanInstall(false);
   };
 
   if (!canInstall || isInstalled) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 flex min-w-80 -translate-x-1/2 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+    <div className="fixed bottom-24 left-1/2 z-60 flex min-w-80 -translate-x-1/2 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-lg md:bottom-4">
       <div className="flex items-center gap-2">
         <Image src={Logo} className="size-8" alt="KSM Catering" />
         <span className="text-sm">Install KSM Catering app?</span>
