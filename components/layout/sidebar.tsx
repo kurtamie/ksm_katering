@@ -35,6 +35,15 @@ export function AppSidebar() {
     return NAV_ITEMS.filter((item) => allowedRoutes.includes(item.url));
   }, [userPosition, userDepartment]);
 
+  const onCheckAppUpdate = () => {
+    setTimeout(() => {
+      const updateService = (window as unknown as { updateService?: { fetchUpdate?: () => void } })
+        ?.updateService;
+      updateService?.fetchUpdate?.();
+      window.location.reload();
+    }, 2000);
+  };
+
   return (
     <Sidebar collapsible="icon">
       {/* Desktop: Show Logo */}
@@ -92,6 +101,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="md:hidden">
+        <button
+          type="button"
+          onClick={onCheckAppUpdate}
+          className="flex w-full flex-col items-start gap-1 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <span>Perbarui aplikasi</span>
+          <span className="text-xs text-gray-500">( Version V.0.0.1 )</span>
+        </button>
         <form action={logoutAction}>
           <button
             type="submit"
