@@ -1,38 +1,123 @@
+"use client"
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import React from 'react'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { dishTypeOptions } from '@/app/admin/dish/dish-constants'
+import { createDish } from '@/features/create-dish'
+import { toast } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
+import { useRouter } from 'next/navigation'
+
+type FormValues = {
+  name: string
+  type: string
+}
+
+const toNullable = (value: string) => {
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
+}
 
 export default function page() {
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [formValues, setFormValues] = React.useState<FormValues>({
+    name: '',
+    type: '',
+  })
+
+  const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
+    setFormValues((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return
+
+    const requiredMap: Array<[keyof FormValues, string]> = [
+      ['name', 'Nama Lauk'],
+      ['type', 'Jenis'],
+    ]
+
+    const missingFields = requiredMap
+      .filter(([key]) => !formValues[key].trim())
+      .map(([, label]) => label)
+
+    if (missingFields.length > 0) {
+      toast.error(`Lengkapi field: ${missingFields.join(', ')}`)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const payload = {
+        name: toNullable(formValues.name),
+        type: toNullable(formValues.type),
+      }
+
+      const result = await createDish(payload)
+
+      if (!result.success) {
+        throw new Error(result.error || 'Gagal menyimpan lauk')
+      }
+
+      toast.success('Lauk berhasil dibuat')
+      router.push('/admin/dish')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Gagal menyimpan lauk'
+      toast.error(message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className='w-full bg-[#F5F5F5]'>
+        <Toaster position="top-right" richColors />
         <div className='border-b-1 py-4 px-4 max-w-7xl border-black w-full'>
-            <h1 className='font-bold text-xl'>Informasi Menu</h1>
+            <h1 className='font-bold text-xl'>Informasi Lauk</h1>
         </div>
         <div className='container w-full md:w-full mx-auto px-4 py-2'>
             <div className='bg-white mt-6 md:mt-8 flex flex-col px-4 md:px-8 rounded-lg'>
                 <div className='w-full mb-6 md:mb-8 py-4 md:py-6'>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Nama Menu *</Label>
-                        <Input type="text" name="nama" id="nama" placeholder="Nama depan" required />
+                        <Label htmlFor="dish_name">Nama Lauk *</Label>
+                        <Input
+                          type="text"
+                          name="dish_name"
+                          id="dish_name"
+                          placeholder="Masukkan nama lauk"
+                          required
+                          value={formValues.name}
+                          onChange={(e) => updateField('name', e.target.value)}
+                        />
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Harga</Label>
-                        <Input type="text" name="nama" id="nama" placeholder="Nama belakang" required />
-                    </div>
-                    <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Kategori Produk *</Label>
-                        <Input type="text" name="nama" id="nama" placeholder="Nama depan" required />
-                    </div>
-                    <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Nama Paket *</Label>
-                        <Input type="text" name="nama" id="nama" placeholder="Nama depan" required />
+                        <Label htmlFor="dish_type">Jenis *</Label>
+                        <Select value={formValues.type} onValueChange={(value) => updateField('type', value)}>
+                          <SelectTrigger className="w-full" id="dish_type">
+                            <SelectValue placeholder="Pilih jenis lauk" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Jenis Lauk</SelectLabel>
+                              {dishTypeOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
                     </div>
                     <Button 
-                        className='w-full md:w-auto bg-gray-400 text-white cursor-not-allowed'
-                        disabled
+                        className='w-full md:w-auto bg-gray-400 text-white'
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
                     >
-                        SELANJUTNYA
+                        {isSubmitting ? 'Menyimpan...' : 'SIMPAN'}
                     </Button>
                 </div>
             </div>

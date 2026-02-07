@@ -759,6 +759,11 @@ export default function Page() {
         throw new Error(result.error || "Gagal menyimpan pesanan")
       }
 
+      if (result.resolvedTravelLetterNo && result.resolvedTravelLetterNo !== formValues.travelLetterNo) {
+        setFormValues((prev) => ({ ...prev, travelLetterNo: result.resolvedTravelLetterNo ?? prev.travelLetterNo }))
+        toast.message(`Nomor surat jalan diubah menjadi ${result.resolvedTravelLetterNo} karena sudah terpakai`)
+      }
+
       toast.success("Pesanan berhasil dibuat")
       router.push("/admin/order")
     } catch (error) {

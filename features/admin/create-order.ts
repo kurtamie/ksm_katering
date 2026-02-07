@@ -65,6 +65,7 @@ type OrderPayload = {
 type OrderResult = {
   success: boolean
   error?: string
+  resolvedTravelLetterNo?: string
 }
 
 type CurrentUser = {
@@ -90,6 +91,60 @@ const getNextOrderNumber = (current?: string): string => {
 }
 
 const apiBaseUrl = getStrapiURL()
+
+const isTravelLetterNoAvailable = async (travelLetterNo: string): Promise<boolean> => {
+  const normalized = travelLetterNo.trim()
+  if (!normalized) return true
+
+  const url = new URL('/api/orders', apiBaseUrl)
+  url.searchParams.set('filters[travel_letter_no][$eq]', normalized)
+  url.searchParams.set('pagination[pageSize]', '1')
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+
+  const data = await response.json() as any
+  const total = data?.meta?.pagination?.total
+  if (typeof total === 'number') {
+    return total === 0
+  }
+
+  if (Array.isArray(data?.data)) {
+    return data.data.length === 0
+  }
+
+  if (Array.isArray(data?.orders)) {
+    return data.orders.length === 0
+  }
+
+  if (Array.isArray(data)) {
+    return data.length === 0
+  }
+
+  return true
+}
+
+const getNextAvailableTravelLetterNo = async (initial: string, maxAttempts = 25): Promise<string> => {
+  let current = initial
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const available = await isTravelLetterNoAvailable(current)
+    if (available) {
+      return current
+    }
+    current = getNextOrderNumber(current)
+  }
+
+  throw new Error('Tidak dapat menemukan nomor surat jalan yang tersedia')
+}
 
 const parseId = (value: unknown): number | null => {
   const numeric = typeof value === 'string' ? Number(value) : Number(value)
@@ -466,11 +521,16 @@ export async function createOrder(
       }
     }
 
+    const resolvedTravelLetterNo = await getNextAvailableTravelLetterNo(
+      payload.orderData.travel_letter_no
+    )
+
     const url = new URL('/api/orders', apiBaseUrl)
     
     const strapiPayload = {
       data: {
         ...payload.orderData,
+        travel_letter_no: resolvedTravelLetterNo,
         staff_id: staffId, 
         order_details: undefined,
         order_menus: undefined,
@@ -530,7 +590,7 @@ export async function createOrder(
       console.error('Failed to create order menu')
     }
 
-    return { success: true }
+    return { success: true, resolvedTravelLetterNo }
   } catch (error) {
     console.error('Error creating order:', error)
     return {
