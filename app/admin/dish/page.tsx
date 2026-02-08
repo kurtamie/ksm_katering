@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { FaPlus } from 'react-icons/fa'
+import { IoIosRefresh } from "react-icons/io"
 import { fetchDishes, type DishItem } from '@/features/get-dish'
 import { deleteDish } from '@/features/delete-dish'
 import { toast } from 'sonner'
@@ -45,6 +46,7 @@ export default function page() {
   const [currentPage, setCurrentPage] = React.useState(1)
   const pageSize = 10
   const [typeFilter, setTypeFilter] = React.useState("all")
+  const [isRefreshing, setIsRefreshing] = React.useState(false)
 
   React.useEffect(() => {
     let isMounted = true
@@ -114,12 +116,35 @@ export default function page() {
       setIsDeletingId(null)
     }
   }
+
+  const handleRefreshDishes = async () => {
+    setIsRefreshing(true)
+    try {
+      const data = await fetchDishes()
+      setDishes(data)
+      toast.success("Data lauk berhasil diperbarui")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal memperbarui data lauk"
+      toast.error(message)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
   return (
     <div className='bg-white w-full mx-auto'>
         <Toaster position="top-right" richColors />
         <div className='border-b-1 flex flex-col gap-4 py-4 px-4 max-w-7xl border-black w-full md:flex-row md:items-center md:justify-between'>
             <div className="flex flex-col gap-3">
-              <h1 className='font-bold text-xl'>Manajemen Lauk</h1>
+              <div className="flex items-center gap-3">
+                <h1 className='font-bold text-xl'>Manajemen Lauk</h1>
+                <Button
+                  className="cursor-pointer flex items-center p-2 bg-background rounded-lg shadow-sm"
+                  onClick={handleRefreshDishes}
+                  disabled={isRefreshing}
+                >
+                  <IoIosRefresh className={`text-black hover:text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">Jenis</span>
