@@ -78,32 +78,48 @@ const normalizeDishForForm = (item: any): DishItem => {
 
 export async function fetchDishes(): Promise<DishItem[]> {
   try {
-    const url = new URL('/api/dishes', apiBaseUrl)
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+    const pageSize = 300
+    let page = 1
+    let hasNextPage = true
+    const collected: any[] = []
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+    while (hasNextPage) {
+      const url = new URL('/api/dishes', apiBaseUrl)
+      url.searchParams.set('pagination[page]', String(page))
+      url.searchParams.set('pagination[pageSize]', String(pageSize))
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+
+      if (Array.isArray(result)) {
+        return result.map(normalizeDish)
+      }
+
+      if (result?.data && Array.isArray(result.data)) {
+        collected.push(...result.data)
+        const pagination = result?.meta?.pagination
+        if (!pagination || page >= pagination.pageCount) {
+          hasNextPage = false
+        } else {
+          page += 1
+        }
+      } else {
+        console.warn('Unexpected response structure:', result)
+        return []
+      }
     }
 
-    const result = await response.json()
-
-    let dishes = []
-
-    if (result?.data && Array.isArray(result.data)) {
-      dishes = result.data
-    } else if (Array.isArray(result)) {
-      dishes = result
-    } else {
-      console.warn('Unexpected response structure:', result)
-      return []
-    }
-
-    return dishes.map(normalizeDish)
+    return collected.map(normalizeDish)
   } catch (error) {
     console.error('Error fetching dishes:', error)
     return []
