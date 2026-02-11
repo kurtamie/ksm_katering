@@ -44,7 +44,7 @@ export default function page() {
   const [dishes, setDishes] = React.useState<DishItem[]>([])
   const [isDeletingId, setIsDeletingId] = React.useState<string | null>(null)
   const [currentPage, setCurrentPage] = React.useState(1)
-  const pageSize = 10
+  const pageSize = 25
   const [typeFilter, setTypeFilter] = React.useState("all")
   const [isRefreshing, setIsRefreshing] = React.useState(false)
 

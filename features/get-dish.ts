@@ -78,7 +78,6 @@ const normalizeDishForForm = (item: any): DishItem => {
 
 export async function fetchDishes(): Promise<DishItem[]> {
   try {
-    const pageSize = 300
     let page = 1
     let hasNextPage = true
     const collected: any[] = []
@@ -86,7 +85,7 @@ export async function fetchDishes(): Promise<DishItem[]> {
     while (hasNextPage) {
       const url = new URL('/api/dishes', apiBaseUrl)
       url.searchParams.set('pagination[page]', String(page))
-      url.searchParams.set('pagination[pageSize]', String(pageSize))
+      // pageSize tidak perlu di-set karena sudah dikonfigurasi di backend (300)
 
       const response = await fetch(url, {
         method: 'GET',
