@@ -51,41 +51,6 @@ import { getStrapiURL } from '@/lib/utils'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getCurrentUser } from '@/features/admin/create-order'
 
-const formatPrice = (value: string) => {
-  if (!value || value === "-") return "-"
-  return value
-}
-
-const resolveImageUrl = (value: string) => {
-  const trimmed = value?.trim()
-  if (!trimmed || trimmed === "-") {
-    return "/asset/login.svg"
-  }
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed
-  }
-  if (trimmed.startsWith("/")) {
-    return getStrapiURL(trimmed)
-  }
-  return trimmed
-}
-
-const normalizeRoleValue = (value: string | null | undefined) =>
-  value?.toLowerCase() ?? ""
-
-const canManageMenu = (position: string | null, department: string | null) => {
-  const normalizedPosition = normalizeRoleValue(position)
-  const normalizedDepartment = normalizeRoleValue(department)
-
-  const isManager =
-    normalizedPosition === "manager" && normalizedDepartment === "manager"
-  const isAdminOperational =
-    normalizedPosition === "admin_operational" &&
-    normalizedDepartment === "operational"
-
-  return isManager || isAdminOperational
-}
-
 export default function page() {
   const [menus, setMenus] = React.useState<MenuPackage[]>([])
   const [isDeletingId, setIsDeletingId] = React.useState<string | null>(null)
@@ -93,6 +58,41 @@ export default function page() {
   const [currentPage, setCurrentPage] = React.useState(1)
   const [productFilter, setProductFilter] = React.useState("all")
   const [canManage, setCanManage] = React.useState(false)
+
+  const formatPrice = (value: string) => {
+    if (!value || value === "-") return "-"
+    return value
+  }
+
+  const resolveImageUrl = (value: string) => {
+    const trimmed = value?.trim()
+    if (!trimmed || trimmed === "-") {
+      return "/asset/login.svg"
+    }
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed
+    }
+    if (trimmed.startsWith("/")) {
+      return getStrapiURL(trimmed)
+    }
+    return trimmed
+  }
+
+  const normalizeRoleValue = (value: string | null | undefined) =>
+    value?.toLowerCase() ?? ""
+
+  const canManageMenu = (position: string | null, department: string | null) => {
+    const normalizedPosition = normalizeRoleValue(position)
+    const normalizedDepartment = normalizeRoleValue(department)
+
+    const isManager =
+      normalizedPosition === "manager" && normalizedDepartment === "manager"
+    const isAdminOperational =
+      normalizedPosition === "admin_operational" &&
+      normalizedDepartment === "operational"
+
+    return isManager || isAdminOperational
+  }
 
   React.useEffect(() => {
     let isMounted = true

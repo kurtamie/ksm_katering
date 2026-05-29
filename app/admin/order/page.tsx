@@ -28,6 +28,8 @@ import { getCurrentUser } from '@/features/admin/create-order'
 import { deleteOrder } from '@/features/admin/delete-order'
 import { generateOrderPdf } from '@/features/admin/generate-pdf-order'
 import { generateInvoiceOrderPdf } from '@/features/admin/generate-invoice-order'
+import { generateDeliveryOrderPdf } from '@/features/admin/generate-delivery-order'
+import { generateOrderExcelReport } from '@/features/admin/generate-order-excel-report'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
 import {
@@ -48,6 +50,8 @@ type OrderPermissions = {
   canDelete: boolean
   canExport: boolean
   canPrint: boolean
+  canInvoice: boolean
+  canDeliveryOrder: boolean
 }
 
 const normalizeRoleValue = (value: string | null | undefined) =>
@@ -112,6 +116,8 @@ const deriveOrderPermissions = (
       canDelete: false,
       canExport: false,
       canPrint: false,
+      canInvoice: false,
+      canDeliveryOrder: false,
     }
   }
 
@@ -121,6 +127,8 @@ const deriveOrderPermissions = (
     canDelete,
     canExport,
     canPrint,
+    canInvoice: isSalesMarketing,
+    canDeliveryOrder: isDriver,
   }
 }
 
@@ -175,6 +183,8 @@ function OrderPageInner() {
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false)
   const [isGeneratingInvoice, setIsGeneratingInvoice] = React.useState(false)
+  const [isGeneratingReport, setIsGeneratingReport] = React.useState(false)
+  const [isGeneratingDeliveryOrder, setIsGeneratingDeliveryOrder] = React.useState(false)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [selectionMode, setSelectionMode] = React.useState(false)
   const [selectedOrderKeys, setSelectedOrderKeys] = React.useState<Set<string>>(new Set())
@@ -271,6 +281,37 @@ function OrderPageInner() {
     })
   }, [orders, userPosition, userDepartment, currentStaffId, currentStaffDocumentId])
 
+  const dateFilteredVisibleOrders = React.useMemo(() => {
+    if (!dateRange?.from) return visibleOrders
+
+    const start = new Date(dateRange.from)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(dateRange.to ?? dateRange.from)
+    end.setHours(23, 59, 59, 999)
+
+    return visibleOrders.filter((order) => {
+      const timestamp = Date.parse(order.createdAt)
+      if (!Number.isFinite(timestamp)) return false
+      return timestamp >= start.getTime() && timestamp <= end.getTime()
+    })
+  }, [visibleOrders, dateRange])
+
+  const getOrderKey = React.useCallback((order: Order) => {
+    return order.documentId ?? String(order.id ?? order.order_no)
+  }, [])
+
+  const selectedOrders = React.useMemo(
+    () => dateFilteredVisibleOrders.filter((order) => selectedOrderKeys.has(getOrderKey(order))),
+    [dateFilteredVisibleOrders, selectedOrderKeys, getOrderKey]
+  )
+
+  const hasSelectedOrders = selectedOrders.length > 0
+  const reportTargetOrders = hasSelectedOrders ? selectedOrders : dateFilteredVisibleOrders
+  const canShowSelectedActions =
+    permissions.canExport ||
+    (hasSelectedOrders &&
+      (permissions.canInvoice || permissions.canDeliveryOrder))
+
   const handleRefreshOrders = async () => {
     setIsRefreshing(true)
     try {
@@ -289,10 +330,6 @@ function OrderPageInner() {
     setSelectedOrder(order)
     setDrawerOpen(true)
   }
-
-  const getOrderKey = React.useCallback((order: Order) => {
-    return order.documentId ?? String(order.id ?? order.order_no)
-  }, [])
 
   const toggleOrderSelection = React.useCallback((order: Order) => {
     const key = getOrderKey(order)
@@ -382,26 +419,65 @@ function OrderPageInner() {
     }
   }
 
-  const handleExportInvoice = async () => {
+  const handlePrintInvoiceReport = async () => {
     if (isGeneratingInvoice) return
 
-    const selectedOrders = visibleOrders.filter((order) =>
-      selectedOrderKeys.has(getOrderKey(order))
-    )
-    const ordersToExport = selectedOrders.length > 0 ? selectedOrders : visibleOrders
-
-    if (ordersToExport.length === 0) {
-      toast.error("Tidak ada data pesanan untuk diekspor")
+    if (reportTargetOrders.length === 0) {
+      toast.error("Tidak ada data pesanan untuk dicetak")
       return
     }
 
     setIsGeneratingInvoice(true)
     try {
-      await generateInvoiceOrderPdf(ordersToExport)
-      toast.success("Invoice PDF berhasil dibuat")
-      if (selectionMode) {
+      await generateInvoiceOrderPdf(reportTargetOrders)
+      toast.success("Tagihan PDF berhasil dibuat")
+      if (hasSelectedOrders) {
         setSelectedOrderKeys(new Set())
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal membuat tagihan PDF"
+      toast.error(message)
+    } finally {
+      setIsGeneratingInvoice(false)
+    }
+  }
+
+  const handleExportOrderReport = () => {
+    if (isGeneratingReport) return
+
+    if (reportTargetOrders.length === 0) {
+      toast.error("Tidak ada data pesanan untuk diekspor")
+      return
+    }
+
+    setIsGeneratingReport(true)
+    try {
+      generateOrderExcelReport(reportTargetOrders)
+      toast.success("Laporan pesanan Excel berhasil dibuat")
+      if (hasSelectedOrders) {
+        setSelectedOrderKeys(new Set())
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal membuat laporan pesanan Excel"
+      toast.error(message)
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }
+
+  const handleGenerateInvoice = async () => {
+    if (isGeneratingInvoice) return
+
+    if (selectedOrders.length === 0) {
+      toast.error("Pilih data pesanan yang akan dibuat invoice")
+      return
+    }
+
+    setIsGeneratingInvoice(true)
+    try {
+      await generateInvoiceOrderPdf(selectedOrders)
+      toast.success("Invoice PDF berhasil dibuat")
+      setSelectedOrderKeys(new Set())
     } catch (error) {
       const message = error instanceof Error ? error.message : "Gagal membuat invoice PDF"
       toast.error(message)
@@ -410,11 +486,32 @@ function OrderPageInner() {
     }
   }
 
+  const handleGenerateDeliveryOrder = async () => {
+    if (isGeneratingDeliveryOrder) return
+
+    if (selectedOrders.length === 0) {
+      toast.error("Pilih data pesanan untuk surat jalan")
+      return
+    }
+
+    setIsGeneratingDeliveryOrder(true)
+    try {
+      await generateDeliveryOrderPdf(selectedOrders)
+      toast.success("Surat jalan PDF berhasil dibuat")
+      setSelectedOrderKeys(new Set())
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal membuat surat jalan PDF"
+      toast.error(message)
+    } finally {
+      setIsGeneratingDeliveryOrder(false)
+    }
+  }
+
   return (
     <div className="bg-white w-full mx-auto relative">
         <Toaster position="top-right" richColors />
-        <div className="border-b border-black w-full">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
+        <div className="border-b border-black w-full py-4">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-xl font-bold">Pesanan</h1>
               <Button 
@@ -429,20 +526,11 @@ function OrderPageInner() {
               <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
                 {permissions.canAdd && (
                   <Link href={"/admin/order/add"}>
-                    <Button className="bg-gray-400 cursor-pointer">
+                    <Button variant="default">
                       <FaPlus />
                       Tambah Pesanan
                     </Button>
                   </Link>
-                )}
-                {permissions.canExport && (
-                  <Button
-                    className="bg-gray-400 cursor-pointer"
-                    onClick={handleExportInvoice}
-                    disabled={isGeneratingInvoice}
-                  >
-                    {isGeneratingInvoice ? "Mengekspor..." : "Ekspor Laporan Pesanan"}
-                  </Button>
                 )}
               </div>
               <div className="hidden h-10 w-px bg-gray-400 md:block" />
@@ -505,10 +593,50 @@ function OrderPageInner() {
               </div>
             </div>
           </div>
+          {canShowSelectedActions && (
+            <div className='flex mx-auto max-w-7xl p-4 gap-2'>
+              {permissions.canExport && (
+                <Button
+                  variant="default"
+                  onClick={handlePrintInvoiceReport}
+                  disabled={isGeneratingInvoice || reportTargetOrders.length === 0}
+                >
+                  {isGeneratingInvoice ? "Mencetak..." : "Cetak Tagihan"}
+                </Button>
+              )}
+              {permissions.canExport && (
+                <Button
+                  variant="default"
+                  onClick={handleExportOrderReport}
+                  disabled={isGeneratingReport || reportTargetOrders.length === 0}
+                >
+                  {isGeneratingReport ? "Mengekspor..." : "Ekspor Laporan Pesanan"}
+                </Button>
+              )}
+              {permissions.canInvoice && (
+                <Button
+                  variant="default"
+                  onClick={handleGenerateInvoice}
+                  disabled={isGeneratingInvoice}
+                >
+                  {isGeneratingInvoice ? "Membuat..." : "Invoice"}
+                </Button>
+              )}
+              {permissions.canDeliveryOrder && (
+                <Button
+                  variant="default"
+                  onClick={handleGenerateDeliveryOrder}
+                  disabled={isGeneratingDeliveryOrder}
+                >
+                  {isGeneratingDeliveryOrder ? "Membuat..." : "Surat Jalan"}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
         <div className="mx-auto max-w-7xl px-4 py-4">
           <OrderTable
-            orders={visibleOrders}
+            orders={dateFilteredVisibleOrders}
             onOrderClick={handleOrderClick}
             loading={isRefreshing}
             selectionMode={selectionMode}
@@ -625,6 +753,8 @@ function OrderPageInner() {
                     <DetailRow label="Keterangan" value={selectedOrder.note} />
                     <DetailRow label="Nasi" value={selectedOrder.rice_type} />
                     <DetailRow label="Lauk Utama" value={selectedOrder.side_dish} />
+                    <DetailRow label="Lauk Utama 2" value={selectedOrder.side_dish2} />
+                    <DetailRow label="Lauk Utama 3" value={selectedOrder.side_dish3} />
                     <DetailRow label="Lauk Tambahan" value={selectedOrder.additional_dish} />
                     <DetailRow label="Sayur" value={selectedOrder.vegetable} />
                     <DetailRow label="Sambal" value={selectedOrder.sauce} />

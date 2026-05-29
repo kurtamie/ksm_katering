@@ -12,31 +12,9 @@ import { fetchStaffs, type Staff } from '@/features/admin/get-staff'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { useRouter } from 'next/navigation'
-
-const DEFAULT_COORDINATE: Coordinate = { lat: 1.134118, lng: 104.027631 }
-
-const normalizeRoleValue = (value: string | null | undefined) =>
-    value?.toLowerCase() ?? ""
-
-type FormValues = {
-  salesName: string
-  staffId: string
-  gender: string
-  name: string
-  companyName: string
-  phoneNo: string
-  company: string
-  address: string
-}
-
-type CurrentUser = {
-  id: number
-  staff?: {
-    id: number | null
-    position?: string
-    department?: string
-  }
-}
+import { CustomerFormValues } from '@/types/admin/customer'
+import { DEFAULT_COORDINATE } from '@/const/default-coordinates'
+import { CurrentUser } from '@/types/admin/user'
 
 export default function page() {
     const router = useRouter()
@@ -45,7 +23,7 @@ export default function page() {
     const [staffOptionsLoading, setStaffOptionsLoading] = useState(false)
     const [coordinates, setCoordinates] = useState<Coordinate>(DEFAULT_COORDINATE)
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [formValues, setFormValues] = useState<FormValues>({
+    const [formValues, setFormValues] = useState<CustomerFormValues>({
         salesName: '',
         staffId: '',
         gender: '',
@@ -55,6 +33,9 @@ export default function page() {
         company: '',
         address: '',
     })
+
+    const normalizeRoleValue = (value: string | null | undefined) =>
+        value?.toLowerCase() ?? ""
 
     const normalizedPosition = normalizeRoleValue(currentUser?.staff?.position)
     const normalizedDepartment = normalizeRoleValue(currentUser?.staff?.department)
@@ -131,7 +112,7 @@ export default function page() {
         setFormValues((prev) => (prev.salesName === selectedName ? prev : { ...prev, salesName: selectedName }))
     }, [formValues.staffId, salesStaffOptions])
 
-    const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
+    const updateField = <K extends keyof CustomerFormValues>(field: K, value: CustomerFormValues[K]) => {
         setFormValues((prev) => ({ ...prev, [field]: value }))
     }
 
@@ -151,7 +132,7 @@ export default function page() {
     const handleSubmit = async () => {
         if (isSubmitting) return
 
-        const requiredMap: Array<[keyof FormValues, string]> = [
+        const requiredMap: Array<[keyof CustomerFormValues, string]> = [
             ['staffId', 'Nama Sales'],
             ['gender', 'Gender'],
             ['name', 'Nama'],

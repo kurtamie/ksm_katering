@@ -20,6 +20,9 @@ export type OrderForEdit = {
   amount: string
   deliveryCharge: string
   totalAmount: string
+  payment1: string
+  payment2: string
+  payment3: string
   deliveryNote: string
   arriveTime: string
   leaveTime: string
@@ -28,6 +31,8 @@ export type OrderForEdit = {
   recipientAddress: string
   rice: string
   mainDish: string
+  mainDish2: string
+  mainDish3: string
   additionalDish: string
   vegetable: string
   sauce: string
@@ -84,6 +89,8 @@ export type UpdateOrderPayload = {
   orderMenuData: {
     rice: string
     main_dish: string
+    main_dish2: string
+    main_dish3: string
     additional_dish: string
     vegetable: string
     sauce: string
@@ -212,6 +219,9 @@ export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdi
     amount: toStringValue(detailAttrs.amount ?? ''),
     deliveryCharge: toStringValue(detailAttrs.delivery_charge ?? ''),
     totalAmount: toStringValue(detailAttrs.total_amount ?? ''),
+    payment1: toStringValue(detailAttrs.payment1 ?? ''),
+    payment2: toStringValue(detailAttrs.payment2 ?? ''),
+    payment3: toStringValue(detailAttrs.payment3 ?? ''),
     deliveryNote: toStringValue(attributes.delivery_note ?? ''),
     arriveTime: toStringValue(attributes.arrive_time ?? ''),
     leaveTime: toStringValue(attributes.leave ?? attributes.leave_time ?? attributes.arrive_time ?? ''),
@@ -220,6 +230,8 @@ export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdi
     recipientAddress: toStringValue(attributes.delivery_address ?? customerAttrs.address ?? ''),
     rice: toStringValue(menuAttrs.rice ?? ''),
     mainDish: toStringValue(menuAttrs.main_dish ?? ''),
+    mainDish2: toStringValue(menuAttrs.main_dish2 ?? ''),
+    mainDish3: toStringValue(menuAttrs.main_dish3 ?? ''),
     additionalDish: toStringValue(menuAttrs.additional_dish ?? ''),
     vegetable: toStringValue(menuAttrs.vegetable ?? ''),
     sauce: toStringValue(menuAttrs.sauce ?? ''),

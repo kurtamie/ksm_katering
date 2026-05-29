@@ -10,25 +10,13 @@ import { createMenu } from '@/features/admin/create-menu'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { useRouter } from 'next/navigation'
-
-type FormValues = {
-  packageName: string
-  subname: string
-  description: string
-  imageUrl: string
-  price: string
-  product: string
-}
-
-const toNullable = (value: string) => {
-  const trimmed = value.trim()
-  return trimmed === '' ? null : trimmed
-}
+import { MenuFormValues } from "@/types/admin/menu"
+import { toNullable } from "@/const/misc"
 
 export default function page() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [formValues, setFormValues] = React.useState<FormValues>({
+  const [formValues, setFormValues] = React.useState<MenuFormValues>({
     packageName: '',
     subname: '',
     description: '',
@@ -37,14 +25,14 @@ export default function page() {
     product: '',
   })
 
-  const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
+  const updateField = <K extends keyof MenuFormValues>(field: K, value: MenuFormValues[K]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleSubmit = async () => {
     if (isSubmitting) return
 
-    const requiredMap: Array<[keyof FormValues, string]> = [
+    const requiredMap: Array<[keyof MenuFormValues, string]> = [
       ['packageName', 'Nama Paket'],
       ['price', 'Harga'],
       ['product', 'Produk'],

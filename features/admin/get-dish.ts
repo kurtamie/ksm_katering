@@ -1,13 +1,5 @@
 import { getStrapiURL } from '@/lib/utils'
-import type { DishTypeValue } from '@/app/admin/dish/dish-constants'
-
-export type DishItem = {
-  id: number | null
-  documentId: string | null
-  name: string
-  type: DishTypeValue | string
-  createdAt: string
-}
+import { DishItem, FetchDishesParams, FetchDishesResult } from '@/types/admin/dish'
 
 const apiBaseUrl = getStrapiURL()
 
@@ -76,52 +68,54 @@ const normalizeDishForForm = (item: any): DishItem => {
   }
 }
 
-export async function fetchDishes(): Promise<DishItem[]> {
+export async function fetchDishes(params: FetchDishesParams = {}): Promise<FetchDishesResult> {
   try {
-    let page = 1
-    let hasNextPage = true
-    const collected: any[] = []
+    const page = Math.max(1, params.page ?? 1)
+    const pageSize = Math.max(1, params.pageSize ?? 25)
+    const type = params.type?.trim()
 
-    while (hasNextPage) {
-      const url = new URL('/api/dishes', apiBaseUrl)
-      url.searchParams.set('pagination[page]', String(page))
-      // pageSize tidak perlu di-set karena sudah dikonfigurasi di backend (300)
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const result = await response.json()
-
-      if (Array.isArray(result)) {
-        return result.map(normalizeDish)
-      }
-
-      if (result?.data && Array.isArray(result.data)) {
-        collected.push(...result.data)
-        const pagination = result?.meta?.pagination
-        if (!pagination || page >= pagination.pageCount) {
-          hasNextPage = false
-        } else {
-          page += 1
-        }
-      } else {
-        console.warn('Unexpected response structure:', result)
-        return []
-      }
+    const url = new URL('/api/dishes', apiBaseUrl)
+    url.searchParams.set('pagination[page]', String(page))
+    url.searchParams.set('pagination[pageSize]', String(pageSize))
+    if (type && type !== "all") {
+      url.searchParams.set('filters[type][$eq]', type)
     }
 
-    return collected.map(normalizeDish)
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    const rows = Array.isArray(result?.data) ? result.data : []
+    const pagination = result?.meta?.pagination
+
+    return {
+      data: rows.map(normalizeDish),
+      pagination: {
+        page: Number(pagination?.page ?? page),
+        pageSize: Number(pagination?.pageSize ?? pageSize),
+        pageCount: Number(pagination?.pageCount ?? 1),
+        total: Number(pagination?.total ?? rows.length),
+      },
+    }
   } catch (error) {
     console.error('Error fetching dishes:', error)
-    return []
+    return {
+      data: [],
+      pagination: {
+        page: 1,
+        pageSize: 25,
+        pageCount: 1,
+        total: 0,
+      },
+    }
   }
 }
 

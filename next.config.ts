@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 import withPWA from "next-pwa";
 
+const applyPWA = withPWA as unknown as (
+  options: Parameters<typeof withPWA>[0]
+) => (config: NextConfig) => NextConfig;
+
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -9,7 +13,7 @@ const nextConfig: NextConfig = {
   turbopack: {},
 };
 
-export default withPWA({
+export default applyPWA({
   dest: "public",
   register: true,
   skipWaiting: true,

@@ -5,38 +5,30 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import React from 'react'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { dishTypeOptions } from '@/app/admin/dish/dish-constants'
-import { createDish } from '@/features/create-dish'
+import { createDish } from '@/features/admin/create-dish'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { useRouter } from 'next/navigation'
-
-type FormValues = {
-  name: string
-  type: string
-}
-
-const toNullable = (value: string) => {
-  const trimmed = value.trim()
-  return trimmed === '' ? null : trimmed
-}
+import { DishFormValues } from '@/types/admin/dish'
+import { dishTypeOptions } from '@/const/admin/dish'
+import { toNullable } from '@/const/misc'
 
 export default function page() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [formValues, setFormValues] = React.useState<FormValues>({
+  const [formValues, setFormValues] = React.useState<DishFormValues>({
     name: '',
     type: '',
   })
 
-  const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
+  const updateField = <K extends keyof DishFormValues>(field: K, value: DishFormValues[K]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleSubmit = async () => {
     if (isSubmitting) return
 
-    const requiredMap: Array<[keyof FormValues, string]> = [
+    const requiredMap: Array<[keyof DishFormValues, string]> = [
       ['name', 'Nama Lauk'],
       ['type', 'Jenis'],
     ]

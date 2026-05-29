@@ -8,20 +8,12 @@ import React from 'react'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { useRouter, useParams } from 'next/navigation'
-import { fetchDishByDocumentId } from '@/features/get-dish'
-import { updateDish } from '@/features/update-dish'
+import { fetchDishByDocumentId } from '@/features/admin/get-dish'
+import { updateDish } from '@/features/admin/update-dish'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { dishTypeOptions } from '@/app/admin/dish/dish-constants'
-
-type FormValues = {
-  name: string
-  type: string
-}
-
-const toNullable = (value: string) => {
-  const trimmed = value.trim()
-  return trimmed === '' ? null : trimmed
-}
+import { DishFormValues } from "@/types/admin/dish"
+import { dishTypeOptions } from "@/const/admin/dish"
+import { toNullable } from "@/const/misc"
 
 export default function page() {
   const router = useRouter()
@@ -29,12 +21,12 @@ export default function page() {
   const documentId = params.documentId as string
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isLoadingDish, setIsLoadingDish] = React.useState(false)
-  const [formValues, setFormValues] = React.useState<FormValues>({
+  const [formValues, setFormValues] = React.useState<DishFormValues>({
     name: '',
     type: '',
   })
 
-  const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
+  const updateField = <K extends keyof DishFormValues>(field: K, value: DishFormValues[K]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -74,7 +66,7 @@ export default function page() {
       return
     }
 
-    const requiredMap: Array<[keyof FormValues, string]> = [
+    const requiredMap: Array<[keyof DishFormValues, string]> = [
       ['name', 'Nama Lauk'],
       ['type', 'Jenis'],
     ]
@@ -163,7 +155,7 @@ export default function page() {
                       </Select>
                   </div>
                   <Button
-                      className='w-full md:w-auto bg-gray-400 text-white'
+                      className='w-full md:w-auto bg-red-900 text-white'
                       onClick={handleSubmit}
                       disabled={isSubmitting || isLoadingDish}
                   >

@@ -7,26 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SubmitButton } from "@/components/custom/submit-button"
 import { ZodErrors } from "@/components/custom/zod-errors"
-import { updateAccountAction, updatePasswordAction, INITIAL_STATE } from "@/features/update-accound"
-
-const extractUserData = (payload: any) => {
-  const user = payload?.data ?? payload
-  const staff = user?.staff?.data ?? user?.staff ?? null
-  const staffAttrs = staff?.attributes ?? staff ?? null
-
-  return {
-    username: user?.username ?? user?.name ?? "",
-    email: user?.email ?? "",
-    phone_no: user?.phone_no ?? user?.phone ?? "",
-    staff: staffAttrs
-      ? {
-          ktp_no: staffAttrs?.ktp_no ?? staffAttrs?.ktpNo ?? "",
-          department: staffAttrs?.department ?? "",
-          position: staffAttrs?.position ?? "",
-        }
-      : null,
-  }
-}
+import { updateAccountAction, updatePasswordAction, INITIAL_STATE } from "@/features/admin/update-accound"
 
 export default function AccountPage() {
   const [accountState, accountAction] = useActionState(updateAccountAction, INITIAL_STATE)
@@ -45,6 +26,23 @@ export default function AccountPage() {
     () => values.department !== "" || values.position !== "" || values.ktp_no !== "",
     [values]
   )
+  const extractUserData = (payload: any) => {
+    const user = payload?.data ?? payload
+    const staff = user?.staff?.data ?? user?.staff ?? null
+    const staffAttrs = staff?.attributes ?? staff ?? null
+      return {
+        username: user?.username ?? user?.name ?? "",
+        email: user?.email ?? "",
+        phone_no: user?.phone_no ?? user?.phone ?? "",
+        staff: staffAttrs
+          ? {
+              ktp_no: staffAttrs?.ktp_no ?? staffAttrs?.ktpNo ?? "",
+              department: staffAttrs?.department ?? "",
+              position: staffAttrs?.position ?? "",
+            }
+          : null,
+      }
+  }
 
   useEffect(() => {
     let isMounted = true

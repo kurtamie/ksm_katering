@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchOrders, type Order } from '@/features/admin/get-order';
 import { useRouter } from 'next/navigation';
+import { months, weekDays } from '@/const/calendar';
 
 export default function Page() {
   const router = useRouter();
@@ -14,13 +15,6 @@ export default function Page() {
   const [selectedMonth, setSelectedMonth] = useState('current');
   const today = new Date();
   const [orders, setOrders] = useState<Order[]>([]);
-
-  const months = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
-
-  const weekDays = ['S', 'S', 'R', 'K', 'J', 'S', 'M']; 
 
   React.useEffect(() => {
     let isMounted = true;

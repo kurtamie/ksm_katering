@@ -37,20 +37,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-const getDisplayName = (customer: Customer) => {
-  if (customer.name !== "-") return customer.name
-  if (customer.company_name !== "-") return customer.company_name
-  return "-"
-}
-
-const normalizePhoneForLink = (value: string) => {
-  const digits = value.replace(/\D+/g, '')
-  if (!digits) return ''
-  if (digits.startsWith('0')) return `62${digits.slice(1)}`
-  if (digits.startsWith('8')) return `62${digits}`
-  return digits
-}
-
 export default function CustomerPageClient() {
   const searchParams = useSearchParams()
   const [drawerOpen, setDrawerOpen] = React.useState(false)
@@ -58,6 +44,19 @@ export default function CustomerPageClient() {
   const [customers, setCustomers] = React.useState<Customer[]>([])
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const documentIdParam = searchParams.get("documentId") ?? searchParams.get("customerId") ?? searchParams.get("id")
+  const getDisplayName = (customer: Customer) => {
+    if (customer.name !== "-") return customer.name
+    if (customer.company_name !== "-") return customer.company_name
+    return "-"
+  }
+
+  const normalizePhoneForLink = (value: string) => {
+    const digits = value.replace(/\D+/g, '')
+    if (!digits) return ''
+    if (digits.startsWith('0')) return `62${digits.slice(1)}`
+    if (digits.startsWith('8')) return `62${digits}`
+    return digits
+  }
 
   React.useEffect(() => {
     let isMounted = true

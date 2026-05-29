@@ -23,72 +23,13 @@ import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner"
 import { useRouter } from "next/navigation"
 import type { Coordinate } from "@/types/coordinate"
-
-type CustomerOption = {
-  id: number
-  name: string
-  phone_no: string
-  staff_id?: number | null
-  staff_document_id?: string | null
-}
-
-type PackageOption = {
-  id: number
-  package_name: string
-  subname?: string
-  product?: string
-  price?: string
-}
-
-type FormValues = {
-  orderNo: string
-  travelLetterNo: string
-  staffId: string
-  customerId: string
-  customerType: string
-  executorTeam: string
-  supplier: string
-  product: string
-  packageId: string
-  qty: string
-  sellingPrice: string
-  brokerFee: string
-  priceForKsm: string
-  minSellingPrice: string
-  amount: string
-  deliveryCharge: string
-  totalAmount: string
-  deliveryNote: string
-  arriveTime: string
-  leaveTime: string
-  recipientName: string
-  recipientPhone: string
-  recipientAddress: string
-  rice: string
-  mainDish: string
-  additionalDish: string
-  vegetable: string
-  sauce: string
-  chip: string
-  fruit: string
-  mineralWater: string
-  box: string
-  pudding: string
-  snack: string
-}
-
-type CurrentUser = {
-  id: number
-  staff?: {
-    id: number | null
-    documentId?: string
-    position?: string
-    department?: string
-  }
-}
-
-const normalizeRoleValue = (value: string | null | undefined) =>
-  value?.toLowerCase() ?? ""
+import { fetchDishes } from "@/features/admin/get-dish"
+import { CustomerOption, OrderDishOptions, OrderFormValues, PackageOption } from "@/types/admin/order";
+import { normalizeRoleValue } from "@/const/misc";
+import { CurrentUser } from "@/types/admin/user";
+import { DEFAULT_DISH_OPTIONS } from "@/const/admin/dish";
+import { arrives, DEFAULT_ORDER_NUMBER, defaultProducts, getMainDishFieldCount, mapDishesToOrderOptions, suppliers } from "@/const/admin/order";
+import { DEFAULT_COORDINATE } from "@/const/default-coordinates";
 
 const canAddOrder = (position: string | null, department: string | null) => {
   const normalizedPosition = normalizeRoleValue(position)
@@ -106,9 +47,6 @@ const canAddOrder = (position: string | null, department: string | null) => {
 
   return isAdminOperational || isSalesMarketing || isManager || isDeveloper
 }
-
-const DEFAULT_COORDINATE: Coordinate = { lat: 1.134118, lng: 104.027631 }
-const DEFAULT_ORDER_NUMBER = "0001"
 
 const calculateLeaveTime = (arrivalTime: string) => {
   const [hours, minutes, seconds = "0"] = arrivalTime.split(":")
@@ -202,6 +140,7 @@ export default function Page() {
   const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>([])
   const [packageOptions, setPackageOptions] = useState<PackageOption[]>([])
   const [productOptions, setProductOptions] = useState<string[]>([])
+  const [dishOptions, setDishOptions] = useState<OrderDishOptions>(DEFAULT_DISH_OPTIONS)
   const [salesStaffOptions, setSalesStaffOptions] = useState<Staff[]>([])
   const [customersLoading, setCustomersLoading] = useState(false)
   const [packagesLoading, setPackagesLoading] = useState(false)
@@ -221,7 +160,7 @@ export default function Page() {
   })
   const [coordinates, setCoordinates] = useState<Coordinate>(DEFAULT_COORDINATE)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formValues, setFormValues] = useState<FormValues>({
+  const [formValues, setFormValues] = useState<OrderFormValues>({
     orderNo: "",
     travelLetterNo: "",
     staffId: "",
@@ -239,6 +178,9 @@ export default function Page() {
     amount: "",
     deliveryCharge: "",
     totalAmount: "",
+    payment1: "",
+    payment2: "",
+    payment3: "",
     deliveryNote: "",
     arriveTime: "",
     leaveTime: "",
@@ -247,6 +189,8 @@ export default function Page() {
     recipientAddress: "",
     rice: "",
     mainDish: "",
+    mainDish2: "",
+    mainDish3: "",
     additionalDish: "",
     vegetable: "",
     sauce: "",
@@ -256,101 +200,9 @@ export default function Page() {
     box: "",
     pudding: "",
     snack: "",
+    staffDriverId: "",
   })
-  const suppliers = ["Dapur KCI", "Bu Farida", "Bu Anti"]
-  const defaultProducts = [
-    "Nasi Kotak",
-    "Prasmanan",
-    "Pondokan",
-    "Coffee Break",
-    "Tumpeng",
-    "Custom",
-    "Bento",
-    "Aqiqah",
-    "Snack",
-    "Rantangan",
-  ]
-  const rices = [
-    "Ketupat",
-    "Lontong",
-    "Lontong Pak Eko",
-    "Nasi goreng",
-    "Nasi goreng seafood",
-    "Nasi kuning",
-    "Nasi lemak",
-    "Nasi putih",
-    "Nasi liwet",
-  ]
-  const mainDishes = ["Ayam bakar padang", "Ayam geprek", "Ayam fillet", "Semur daging"]
-  const additionalDishes = [
-    "Bakwan jagung",
-    "Bakwan kedelai",
-    "Bakwan kentang",
-  ]
-  const vegetables = ["Tumis", "Bayam", "Kangkung"]
-  const sauces = ["Sambal Terasi", "Sambal Ijo", "Sambal"]
-  const chips = ["Kerupuk", "Kerupuk udang kecil", "Kerupuk udang besar"]
-  const fruits = ["Apel", "Jeruk", "Pisang"]
-  const mineralWaters = ["Aqua 220", "Aqua 330", "Aqua 600", "Le Minerale 330", "Sanford 220", "Sanford 330", "Sanford 600"]
-  const boxes = [
-    "Kotak putih snack",
-    "Bungkus ala nasi padang",
-    "Kotak bento",
-    "Kotak snack ksm",
-    "Kotak warna 19x19",
-    "Kotak putih 18x18",
-    "Mika bento",
-  ]
-  const arrives = [
-    "01:00:00",
-    "01:30:00",
-    "02:00:00",
-    "02:30:00",
-    "03:00:00",
-    "03:30:00",
-    "04:00:00",
-    "04:30:00",
-    "05:00:00",
-    "05:30:00",
-    "06:00:00",
-    "06:30:00",
-    "07:00:00",
-    "07:30:00",
-    "08:00:00",
-    "08:30:00",
-    "09:00:00",
-    "09:30:00",
-    "10:00:00",
-    "10:30:00",
-    "11:00:00",
-    "11:30:00",
-    "12:00:00",
-    "12:30:00",
-    "13:00:00",
-    "13:30:00",
-    "14:00:00",
-    "14:30:00",
-    "15:00:00",
-    "15:30:00",
-    "16:00:00",
-    "16:30:00",
-    "17:00:00",
-    "17:30:00",
-    "18:00:00",
-    "18:30:00",
-    "19:00:00",
-    "19:30:00",
-    "20:00:00",
-    "20:30:00",
-    "21:00:00",
-    "21:30:00",
-    "22:00:00",
-    "22:30:00",
-    "23:00:00",
-    "23:30:00",
-    "00:00:00",
-    "00:30:00",
-  ]
+  
   useEffect(() => {
     let isMounted = true
 
@@ -381,7 +233,7 @@ export default function Page() {
     }
   }
 
-  const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
+  const updateField = <K extends keyof OrderFormValues>(field: K, value: OrderFormValues[K]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -418,7 +270,10 @@ export default function Page() {
   const selectedPackage = formValues.packageId
     ? packageOptions.find((pkg) => pkg.id.toString() === formValues.packageId)
     : undefined
-  const filteredMainDishes = filterMainDishesBySubname(selectedPackage?.subname, mainDishes)
+  const mainDishFieldCount = getMainDishFieldCount(
+    selectedPackage ? formatPackageLabel(selectedPackage) : ""
+  )
+  const filteredMainDishes = filterMainDishesBySubname(selectedPackage?.subname, dishOptions.mainDish)
 
   const selectedStaffId = normalizeId(formValues.staffId)
   const currentStaffId = normalizeId(currentUser?.staff?.id ?? null)
@@ -477,8 +332,20 @@ export default function Page() {
       }
     }
 
+    const loadDishes = async () => {
+      try {
+        const dishes = await fetchDishes({ page: 1, pageSize: 500 })
+        if (!isMounted) return
+        setDishOptions(mapDishesToOrderOptions(dishes.data))
+      } catch (error) {
+        if (!isMounted) return
+        toast.error("Gagal memuat data dish")
+      }
+    }
+
     loadCustomers()
     loadPackages()
+    loadDishes()
 
     return () => {
       isMounted = false
@@ -602,22 +469,53 @@ export default function Page() {
     if (!formValues.packageId) return
 
     const selectedPackage = packageOptions.find((pkg) => pkg.id.toString() === formValues.packageId)
-    const nextMainDish = getMainDishFromSubname(selectedPackage?.subname, mainDishes)
+    const nextMainDish = getMainDishFromSubname(selectedPackage?.subname, dishOptions.mainDish)
 
     if (!nextMainDish) return
 
     setFormValues((prev) => (prev.mainDish === nextMainDish ? prev : { ...prev, mainDish: nextMainDish }))
-  }, [formValues.packageId, packageOptions])
+  }, [formValues.packageId, packageOptions, dishOptions.mainDish])
 
   useEffect(() => {
     if (!formValues.mainDish) return
     if (filteredMainDishes.length === 0) return
 
-    const isValid = filteredMainDishes.some((dish) => dish === formValues.mainDish)
-    if (!isValid) {
-      setFormValues((prev) => ({ ...prev, mainDish: "" }))
-    }
-  }, [filteredMainDishes, formValues.mainDish])
+    setFormValues((prev) => {
+      const next = { ...prev }
+      let changed = false
+
+      const clearIfInvalid = (key: "mainDish" | "mainDish2" | "mainDish3") => {
+        if (!prev[key]) return
+        if (filteredMainDishes.some((dish) => dish === prev[key])) return
+        next[key] = ""
+        changed = true
+      }
+
+      clearIfInvalid("mainDish")
+      clearIfInvalid("mainDish2")
+      clearIfInvalid("mainDish3")
+
+      return changed ? next : prev
+    })
+  }, [filteredMainDishes, formValues.mainDish, formValues.mainDish2, formValues.mainDish3])
+
+  useEffect(() => {
+    setFormValues((prev) => {
+      const next = { ...prev }
+      let changed = false
+
+      if (mainDishFieldCount < 2 && prev.mainDish2) {
+        next.mainDish2 = ""
+        changed = true
+      }
+      if (mainDishFieldCount < 3 && prev.mainDish3) {
+        next.mainDish3 = ""
+        changed = true
+      }
+
+      return changed ? next : prev
+    })
+  }, [mainDishFieldCount])
 
   useEffect(() => {
     const qtyNumber = Number(formValues.qty)
@@ -636,7 +534,7 @@ export default function Page() {
       const next = { ...prev }
       let changed = false
 
-      const setValue = (key: keyof FormValues, value: string) => {
+      const setValue = (key: keyof OrderFormValues, value: string) => {
         if (prev[key] !== value) {
           next[key] = value
           changed = true
@@ -654,7 +552,7 @@ export default function Page() {
   const handleSubmit = async () => {
     if (isSubmitting) return
 
-    const requiredMap: Array<[keyof FormValues, string]> = [
+    const requiredMap: Array<[keyof OrderFormValues, string]> = [
       ["customerId", "Customer"],
       ["customerType", "Golongan Customer"],
       ["executorTeam", "Tim Eksekusi"],
@@ -677,6 +575,13 @@ export default function Page() {
       ["recipientPhone", "No. HP Penerima"],
       ["recipientAddress", "Alamat Pengiriman"],
     ]
+
+    if (mainDishFieldCount >= 2) {
+      requiredMap.push(["mainDish2", "Lauk Utama 2"])
+    }
+    if (mainDishFieldCount >= 3) {
+      requiredMap.push(["mainDish3", "Lauk Utama 3"])
+    }
 
     const missingFields = requiredMap
       .filter(([key]) => !String(formValues[key] ?? "").trim())
@@ -737,10 +642,15 @@ export default function Page() {
           amount: formValues.amount,
           delivery_charge: formValues.deliveryCharge,
           total_amount: formValues.totalAmount,
+          payment1: formValues.payment1,
+          payment2: formValues.payment2,
+          payment3: formValues.payment3,
         },
         orderMenuData: {
           rice: formValues.rice,
           main_dish: formValues.mainDish,
+          main_dish2: mainDishFieldCount >= 2 ? formValues.mainDish2 : "",
+          main_dish3: mainDishFieldCount >= 3 ? formValues.mainDish3 : "",
           additional_dish: formValues.additionalDish,
           vegetable: formValues.vegetable,
           sauce: formValues.sauce,
@@ -1092,6 +1002,39 @@ export default function Page() {
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+              <Label htmlFor="payment1">Pembayaran 1</Label>
+              <Input
+                type="number"
+                name="payment1"
+                id="payment1"
+                placeholder="0"
+                value={formValues.payment1}
+                onChange={(e) => updateField("payment1", e.target.value)}
+              />
+            </div>
+            <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+              <Label htmlFor="payment2">Pembayaran 2</Label>
+              <Input
+                type="number"
+                name="payment2"
+                id="payment2"
+                placeholder="0"
+                value={formValues.payment2}
+                onChange={(e) => updateField("payment2", e.target.value)}
+              />
+            </div>
+            <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+              <Label htmlFor="payment3">Pembayaran 3</Label>
+              <Input
+                type="number"
+                name="payment3"
+                id="payment3"
+                placeholder="0"
+                value={formValues.payment3}
+                onChange={(e) => updateField("payment3", e.target.value)}
+              />
+            </div>
+            <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="delivery_note">Keterangan</Label>
               <Textarea
                 name="delivery_note"
@@ -1110,7 +1053,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Nasi</SelectLabel>
-                    {rices.map((rice) => (
+                    {dishOptions.rice.map((rice) => (
                       <SelectItem key={rice} value={rice}>
                         {rice}
                       </SelectItem>
@@ -1141,6 +1084,46 @@ export default function Page() {
                 Recommend: {menuRecommendations.mainDish}
               </Label>
             </div>
+            {mainDishFieldCount >= 2 ? (
+              <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                <Label htmlFor="main_dish2">Lauk Utama 2 *</Label>
+                <Select value={formValues.mainDish2} onValueChange={(value) => updateField("mainDish2", value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih lauk utama 2" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Lauk Utama</SelectLabel>
+                      {filteredMainDishes.map((maindish) => (
+                        <SelectItem key={maindish} value={maindish}>
+                          {maindish}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+            {mainDishFieldCount >= 3 ? (
+              <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                <Label htmlFor="main_dish3">Lauk Utama 3 *</Label>
+                <Select value={formValues.mainDish3} onValueChange={(value) => updateField("mainDish3", value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih lauk utama 3" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Lauk Utama</SelectLabel>
+                      {filteredMainDishes.map((maindish) => (
+                        <SelectItem key={maindish} value={maindish}>
+                          {maindish}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="additional_dish">Tambahan *</Label>
               <Select value={formValues.additionalDish} onValueChange={(value) => updateField("additionalDish", value)}>
@@ -1150,7 +1133,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Lauk Tambahan</SelectLabel>
-                    {additionalDishes.map((additionaldish) => (
+                    {dishOptions.additionalDish.map((additionaldish) => (
                       <SelectItem key={additionaldish} value={additionaldish}>
                         {additionaldish}
                       </SelectItem>
@@ -1169,7 +1152,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Sayur</SelectLabel>
-                    {vegetables.map((vegetable) => (
+                    {dishOptions.vegetable.map((vegetable) => (
                       <SelectItem key={vegetable} value={vegetable}>
                         {vegetable}
                       </SelectItem>
@@ -1188,7 +1171,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Sambal</SelectLabel>
-                    {sauces.map((sauce) => (
+                    {dishOptions.sauce.map((sauce) => (
                       <SelectItem key={sauce} value={sauce}>
                         {sauce}
                       </SelectItem>
@@ -1207,7 +1190,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Kerupuk</SelectLabel>
-                    {chips.map((chip) => (
+                    {dishOptions.chip.map((chip) => (
                       <SelectItem key={chip} value={chip}>
                         {chip}
                       </SelectItem>
@@ -1228,7 +1211,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Buah</SelectLabel>
-                    {fruits.map((fruit) => (
+                    {dishOptions.fruit.map((fruit) => (
                       <SelectItem key={fruit} value={fruit}>
                         {fruit}
                       </SelectItem>
@@ -1247,7 +1230,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Air Mineral</SelectLabel>
-                    {mineralWaters.map((mineralWater) => (
+                    {dishOptions.mineralWater.map((mineralWater) => (
                       <SelectItem key={mineralWater} value={mineralWater}>
                         {mineralWater}
                       </SelectItem>
@@ -1265,7 +1248,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Kotak</SelectLabel>
-                    {boxes.map((box) => (
+                    {dishOptions.box.map((box) => (
                       <SelectItem key={box} value={box}>
                         {box}
                       </SelectItem>

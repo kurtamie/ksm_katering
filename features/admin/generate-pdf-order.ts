@@ -73,6 +73,8 @@ const buildLineItems = (
   const detailItems: PdfLineItem[] = [
     menuAttrs.rice && { name: menuAttrs.rice, qty },
     menuAttrs.main_dish && { name: menuAttrs.main_dish, qty },
+    menuAttrs.main_dish2 && { name: menuAttrs.main_dish2, qty },
+    menuAttrs.main_dish3 && { name: menuAttrs.main_dish3, qty },
     menuAttrs.additional_dish && { name: menuAttrs.additional_dish, qty },
     menuAttrs.vegetable && { name: menuAttrs.vegetable, qty },
     menuAttrs.sauce && { name: menuAttrs.sauce, qty },
@@ -192,7 +194,7 @@ export async function generateOrderPdf(documentId: string) {
     console.error('Gagal membuat QR code:', error)
   }
 
-  const documentNode = React.createElement(PdfOrderDocument, { order: orderData })
+  const documentNode = React.createElement(PdfOrderDocument, { order: orderData }) as Parameters<typeof pdf>[0]
 
   const blob = await pdf(documentNode).toBlob()
   const fileName = `order-${orderData.orderNo || documentId}.pdf`

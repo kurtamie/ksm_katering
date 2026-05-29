@@ -33,12 +33,13 @@ import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { FaPlus } from 'react-icons/fa'
 import { IoIosRefresh } from "react-icons/io"
-import { fetchDishes, type DishItem } from '@/features/get-dish'
-import { deleteDish } from '@/features/delete-dish'
+import { fetchDishes } from '@/features/admin/get-dish'
+import { deleteDish } from '@/features/admin/delete-dish'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
-import { dishTypeOptions, getDishTypeLabel } from '@/app/admin/dish/dish-constants'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { dishTypeOptions, getDishTypeLabel } from '@/const/admin/dish'
+import { DishItem } from '@/types/admin/dish'
 
 export default function page() {
   const [dishes, setDishes] = React.useState<DishItem[]>([])
@@ -47,39 +48,17 @@ export default function page() {
   const pageSize = 25
   const [typeFilter, setTypeFilter] = React.useState("all")
   const [isRefreshing, setIsRefreshing] = React.useState(false)
-
-  React.useEffect(() => {
-    let isMounted = true
-
-    const loadDishes = async () => {
-      const data = await fetchDishes()
-      if (isMounted) {
-        setDishes(data)
-      }
-    }
-
-    loadDishes()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [totalItems, setTotalItems] = React.useState(0)
+  const [totalPages, setTotalPages] = React.useState(1)
 
   React.useEffect(() => {
     setCurrentPage(1)
   }, [typeFilter])
 
-  const filteredDishes = React.useMemo(() => {
-    if (typeFilter === "all") return dishes
-    return dishes.filter((dish) => dish.type === typeFilter)
-  }, [dishes, typeFilter])
-
-  const totalItems = filteredDishes.length
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
-  const safeCurrentPage = Math.min(currentPage, totalPages)
-  const startIndex = (safeCurrentPage - 1) * pageSize
-  const endIndex = Math.min(startIndex + pageSize, totalItems)
-  const pagedDishes = filteredDishes.slice(startIndex, endIndex)
+  const safeCurrentPage = Math.min(currentPage, totalPages || 1)
+  const startIndex = totalItems === 0 ? 0 : (safeCurrentPage - 1) * pageSize
+  const endIndex = Math.min(startIndex + dishes.length, totalItems)
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
 
   const handlePageChange = (page: number) => {
@@ -92,6 +71,36 @@ export default function page() {
       setCurrentPage(totalPages)
     }
   }, [currentPage, totalPages])
+
+  const loadDishes = React.useCallback(async (page: number, type: string, isManualRefresh = false) => {
+    if (isManualRefresh) {
+      setIsRefreshing(true)
+    } else {
+      setIsLoading(true)
+    }
+
+    try {
+      const result = await fetchDishes({ page, pageSize, type })
+      setDishes(result.data)
+      setTotalItems(result.pagination.total)
+      setTotalPages(Math.max(1, result.pagination.pageCount))
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Gagal memuat data lauk"
+      toast.error(message)
+      return false
+    } finally {
+      if (isManualRefresh) {
+        setIsRefreshing(false)
+      } else {
+        setIsLoading(false)
+      }
+    }
+  }, [pageSize])
+
+  React.useEffect(() => {
+    loadDishes(currentPage, typeFilter)
+  }, [currentPage, typeFilter, loadDishes])
 
   const handleDeleteDish = async (dish: DishItem) => {
     const identifier = dish.documentId ?? (dish.id !== null ? String(dish.id) : "")
@@ -107,7 +116,7 @@ export default function page() {
       if (!result.success) {
         throw new Error(result.error || "Gagal menghapus lauk")
       }
-      setDishes((prev) => prev.filter((item) => (item.documentId ?? String(item.id)) !== identifier))
+      await loadDishes(currentPage, typeFilter)
       toast.success("Lauk berhasil dihapus")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Gagal menghapus lauk"
@@ -118,16 +127,9 @@ export default function page() {
   }
 
   const handleRefreshDishes = async () => {
-    setIsRefreshing(true)
-    try {
-      const data = await fetchDishes()
-      setDishes(data)
+    const success = await loadDishes(currentPage, typeFilter, true)
+    if (success) {
       toast.success("Data lauk berhasil diperbarui")
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Gagal memperbarui data lauk"
-      toast.error(message)
-    } finally {
-      setIsRefreshing(false)
     }
   }
   return (
@@ -183,14 +185,20 @@ export default function page() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pagedDishes.length === 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-sm text-gray-500">
+                    Memuat data lauk...
+                  </TableCell>
+                </TableRow>
+              ) : dishes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-sm text-gray-500">
                     Belum ada data lauk
                   </TableCell>
                 </TableRow>
               ) : (
-                pagedDishes.map((dish, index) => {
+                dishes.map((dish, index) => {
                   const identifier = dish.documentId ?? (dish.id !== null ? String(dish.id) : "")
                   const displayIndex = startIndex + index + 1
 

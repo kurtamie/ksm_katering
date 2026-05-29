@@ -1,5 +1,5 @@
 import { getStrapiURL } from '@/lib/utils'
-import type { DishTypeValue } from '@/app/admin/dish/dish-constants'
+import type { DishTypeValue } from '@/const/admin/dish'
 
 export type UpdateDishPayload = {
   name: string | null

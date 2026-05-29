@@ -13,6 +13,7 @@ export type Order = {
   customer_type: string
   category: string
   package: string
+  package_name: string
   driver: string
   staff_driver_id: string
   travel_letter_no: string
@@ -21,6 +22,9 @@ export type Order = {
   price_send: string
   price_total: string
   amount: string
+  payment1: string
+  payment2: string
+  payment3: string
   createdAt: string
   phone: string
   product_category: string
@@ -33,6 +37,8 @@ export type Order = {
   note: string
   rice_type: string
   side_dish: string
+  side_dish2: string
+  side_dish3: string
   additional_dish: string
   vegetable: string
   sauce: string
@@ -242,7 +248,12 @@ const normalizeOrder = (item: any): Order => {
     
     package: withFallback(
       packageAttrs?.package_name || 
-      packageAttrs?.name
+      packageAttrs?.name ||
+      attributes.package_name
+    ),
+
+    package_name: withFallback(
+      attributes.package_name
     ),
     
     product_category: withFallback(
@@ -274,7 +285,13 @@ const normalizeOrder = (item: any): Order => {
     price_send: withFallback(detailAttrs?.delivery_charge),
     
     price_total: withFallback(detailAttrs?.total_amount),
-    
+
+    payment1: withFallback(detailAttrs?.payment1),
+
+    payment2: withFallback(detailAttrs?.payment2),
+
+    payment3: withFallback(detailAttrs?.payment3),
+
     amount: withFallback(
       detailAttrs?.amount || 
       detailAttrs?.total_amount
@@ -302,6 +319,10 @@ const normalizeOrder = (item: any): Order => {
     rice_type: withFallback(menuAttrs?.rice),
     
     side_dish: withFallback(menuAttrs?.main_dish),
+
+    side_dish2: withFallback(menuAttrs?.main_dish2),
+
+    side_dish3: withFallback(menuAttrs?.main_dish3),
 
     additional_dish: withFallback(menuAttrs?.additional_dish),
 

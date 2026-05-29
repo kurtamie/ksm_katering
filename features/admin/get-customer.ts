@@ -223,7 +223,7 @@ export async function fetchCustomers(): Promise<Customer[]> {
 
       if (filtered.length === 0) {
         const unfilteredRaw = await fetchCustomersFromApi("documentId")
-        normalized = unfilteredRaw.map(normalizeCustomer).filter((customer) => {
+        normalized = unfilteredRaw.map(normalizeCustomer).filter((customer: Customer) => {
           if (staffId && customer.staff_id === staffId) return true
           if (staffDocumentId && customer.staff_document_id === staffDocumentId) return true
           return false

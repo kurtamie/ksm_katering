@@ -30,6 +30,11 @@ const isValidDate = (value: string) => {
   return Number.isFinite(timestamp)
 }
 
+const getTimestamp = (value: string) => {
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
 const OrderTableSkeleton = ({ selectionMode }: { selectionMode: boolean }) => {
   return (
     <div className="relative w-full overflow-hidden rounded-lg border bg-white shadow-sm">
@@ -120,6 +125,15 @@ export default function OrderTable({
     return new Date(b).getTime() - new Date(a).getTime()
   })
 
+  const sortedGroupedOrders = Object.fromEntries(
+    Object.entries(groupedOrders).map(([dateKey, dateOrders]) => [
+      dateKey,
+      [...dateOrders].sort(
+        (a, b) => getTimestamp(b.createdAt) - getTimestamp(a.createdAt)
+      ),
+    ])
+  ) as GroupedOrders
+
   const getOrderKey = (order: Order) =>
     order.documentId ?? String(order.id ?? order.order_no)
 
@@ -180,6 +194,9 @@ export default function OrderTable({
               <TableHead className='min-w-[150px] font-bold whitespace-nowrap'>Harga Jual KSM</TableHead>
               <TableHead className='min-w-[160px] font-bold whitespace-nowrap'>Harga Pengiriman</TableHead>
               <TableHead className='min-w-[140px] font-bold whitespace-nowrap'>Harga Total</TableHead>
+              <TableHead className='min-w-[140px] font-bold whitespace-nowrap'>Pembayaran 1</TableHead>
+              <TableHead className='min-w-[140px] font-bold whitespace-nowrap'>Pembayaran 2</TableHead>
+              <TableHead className='min-w-[140px] font-bold whitespace-nowrap'>Pembayaran 3</TableHead>
               <TableHead className="min-w-[140px] text-right font-bold whitespace-nowrap">Amount</TableHead>
             </TableRow>
           </TableHeader>
@@ -187,11 +204,11 @@ export default function OrderTable({
             {sortedDates.map((dateKey) => (
               <React.Fragment key={dateKey}>
                 <TableRow className="bg-gray-100 hover:bg-gray-100">
-                  <TableCell colSpan={selectionMode ? 12 : 11} className="font-semibold text-gray-700">
+                  <TableCell colSpan={selectionMode ? 15 : 14} className="font-semibold text-gray-700">
                     {dateKey === "no-date" ? "Tanggal Tidak Valid" : formatDate(dateKey)}
                   </TableCell>
                 </TableRow>
-                {groupedOrders[dateKey].map((order, index) => (
+                {sortedGroupedOrders[dateKey].map((order, index) => (
                   <TableRow 
                     key={`${order.order_no}-${dateKey}-${index}`}
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
@@ -224,6 +241,9 @@ export default function OrderTable({
                     <TableCell className="whitespace-nowrap">{order.price_ksm}</TableCell>
                     <TableCell className="whitespace-nowrap">{order.price_send}</TableCell>
                     <TableCell className="whitespace-nowrap">{order.price_total}</TableCell>
+                    <TableCell className="whitespace-nowrap">{order.payment1}</TableCell>
+                    <TableCell className="whitespace-nowrap">{order.payment2}</TableCell>
+                    <TableCell className="whitespace-nowrap">{order.payment3}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">{order.amount}</TableCell>
                   </TableRow>
                 ))}

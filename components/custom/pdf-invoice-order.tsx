@@ -175,6 +175,11 @@ const withFallback = (value: unknown, fallback = '-') => {
   return String(value)
 }
 
+const isFilled = (value: unknown) => {
+  const normalized = withFallback(value)
+  return normalized !== '-'
+}
+
 const parseNumber = (value: string) => {
   const cleaned = value.replace(/[^\d.-]/g, '')
   const parsed = Number(cleaned)
@@ -202,10 +207,28 @@ const formatDate = (value: string) => {
 }
 
 const buildInvoiceData = (order: Order): InvoiceData => {
-  const description =
+  const packageDescription =
     withFallback(order.menu_product) !== '-' ? order.menu_product :
     withFallback(order.product_package) !== '-' ? order.product_package :
     withFallback(order.product_category)
+  const menuItems = [
+    order.rice_type,
+    order.side_dish,
+    order.side_dish2,
+    order.side_dish3,
+    order.additional_dish,
+    order.vegetable,
+    order.sauce,
+    order.chip,
+    order.fruit,
+    order.mineral_water,
+    order.box,
+    order.pudding,
+    order.snack,
+  ].filter(isFilled)
+  const description = menuItems.length > 0
+    ? `${withFallback(packageDescription)}\n${menuItems.join(', ')}`
+    : withFallback(packageDescription)
 
   const qty = withFallback(order.total_qty || order.qty, '-')
   const unitPrice = formatCurrency(withFallback(order.price_ksm, '-'))
@@ -223,7 +246,7 @@ const buildInvoiceData = (order: Order): InvoiceData => {
     customerCity: 'Batam',
     items: [
       {
-        description: withFallback(description),
+        description,
         qty,
         unitPrice,
         totalPrice,

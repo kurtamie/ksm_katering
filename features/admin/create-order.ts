@@ -50,6 +50,8 @@ type OrderPayload = {
   orderMenuData: {
     rice: string
     main_dish: string
+    main_dish2: string
+    main_dish3: string
     additional_dish: string
     vegetable: string
     sauce: string

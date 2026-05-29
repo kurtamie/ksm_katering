@@ -23,60 +23,12 @@ import { Toaster } from "@/components/ui/sonner"
 import { useRouter, useParams } from "next/navigation"
 import type { Coordinate } from "@/types/coordinate"
 import { fetchOrderForEdit, updateOrder } from "@/features/admin/update-order"
-
-type CustomerOption = {
-  id: number
-  name: string
-  phone_no: string
-}
-
-type PackageOption = {
-  id: number
-  package_name: string
-  product?: string
-}
-
-type FormValues = {
-  orderNo: string
-  customerId: string
-  customerType: string
-  executorTeam: string
-  supplier: string
-  product: string
-  packageId: string
-  qty: string
-  sellingPrice: string
-  brokerFee: string
-  priceForKsm: string
-  minSellingPrice: string
-  amount: string
-  deliveryCharge: string
-  totalAmount: string
-  deliveryNote: string
-  arriveTime: string
-  leaveTime: string
-  recipientName: string
-  recipientPhone: string
-  recipientAddress: string
-  rice: string
-  mainDish: string
-  additionalDish: string
-  vegetable: string
-  sauce: string
-  chip: string
-  fruit: string
-  mineralWater: string
-  box: string
-  pudding: string
-  snack: string
-  staffDriverId: string
-}
-
-const DEFAULT_COORDINATE: Coordinate = { lat: 1.134118, lng: 104.027631 }
-const DEFAULT_ORDER_NUMBER = "0001"
-
-const normalizeRoleValue = (value: string | null | undefined) =>
-  value?.toLowerCase() ?? ""
+import { fetchDishes } from "@/features/admin/get-dish"
+import { CustomerOption, OrderDishOptions, OrderFormValues, PackageOption } from "@/types/admin/order";
+import { DEFAULT_DISH_OPTIONS } from "@/const/admin/dish";
+import { DEFAULT_COORDINATE } from "@/const/default-coordinates";
+import { arrives, DEFAULT_ORDER_NUMBER, defaultProducts, getMainDishFieldCount, mapDishesToOrderOptions, suppliers } from "@/const/admin/order";
+import { normalizeRoleValue } from "@/const/misc";
 
 const calculateLeaveTime = (arrivalTime: string) => {
   const [hours, minutes, seconds = "0"] = arrivalTime.split(":")
@@ -97,6 +49,29 @@ const calculateLeaveTime = (arrivalTime: string) => {
   return `${toTwoDigits(date.getHours())}:${toTwoDigits(date.getMinutes())}:${toTwoDigits(date.getSeconds())}`
 }
 
+const formatPackageLabel = (pkg: PackageOption) => {
+  const name = pkg.package_name?.trim() ?? ""
+  const subname = pkg.subname?.trim()
+  const base = name || `Paket ${pkg.id}`
+  return subname ? `${base} - ${subname}` : base
+}
+
+const filterMainDishesBySubname = (subname: string | null | undefined, dishes: string[]) => {
+  if (!subname) return dishes
+  const normalized = subname.toLowerCase()
+  const keywords: string[] = []
+  if (normalized.includes("ayam")) keywords.push("ayam")
+  if (normalized.includes("ikan")) keywords.push("ikan")
+  if (normalized.includes("daging")) keywords.push("daging")
+  if (normalized.includes("seafood")) keywords.push("seafood")
+
+  if (keywords.length === 0) return dishes
+
+  return dishes.filter((dish) =>
+    keywords.some((keyword) => dish.toLowerCase().includes(keyword))
+  )
+}
+
 export default function Page() {
   const router = useRouter()
   const params = useParams()
@@ -107,12 +82,13 @@ export default function Page() {
   const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>([])
   const [packageOptions, setPackageOptions] = useState<PackageOption[]>([])
   const [productOptions, setProductOptions] = useState<string[]>([])
+  const [dishOptions, setDishOptions] = useState<OrderDishOptions>(DEFAULT_DISH_OPTIONS)
   const [driverOptions, setDriverOptions] = useState<Staff[]>([])
   const [optionsLoading, setOptionsLoading] = useState(false)
   const [coordinates, setCoordinates] = useState<Coordinate>(DEFAULT_COORDINATE)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingOrder, setIsLoadingOrder] = useState(false)
-  const [formValues, setFormValues] = useState<FormValues>({
+  const [formValues, setFormValues] = useState<OrderFormValues>({
     orderNo: "",
     customerId: "",
     customerType: "",
@@ -128,6 +104,9 @@ export default function Page() {
     amount: "",
     deliveryCharge: "",
     totalAmount: "",
+    payment1: "",
+    payment2: "",
+    payment3: "",
     deliveryNote: "",
     arriveTime: "",
     leaveTime: "",
@@ -136,6 +115,8 @@ export default function Page() {
     recipientAddress: "",
     rice: "",
     mainDish: "",
+    mainDish2: "",
+    mainDish3: "",
     additionalDish: "",
     vegetable: "",
     sauce: "",
@@ -145,6 +126,8 @@ export default function Page() {
     box: "",
     pudding: "",
     snack: "",
+    staffId: "",
+    travelLetterNo: "",
     staffDriverId: "",
   })
   const [metaIds, setMetaIds] = useState({
@@ -152,100 +135,6 @@ export default function Page() {
     orderDetailId: null as number | null,
     orderMenuId: null as number | null,
   })
-  const suppliers = ["Dapur KCI", "Bu Farida", "Bu Anti"]
-  const defaultProducts = [
-    "Nasi Kotak",
-    "Prasmanan",
-    "Pondokan",
-    "Coffee Break",
-    "Tumpeng",
-    "Custom",
-    "Bento",
-    "Aqiqah",
-    "Snack",
-    "Rantangan",
-  ]
-  const rices = [
-    "Ketupat",
-    "Lontong",
-    "Lontong Pak Eko",
-    "Nasi goreng",
-    "Nasi goreng seafood",
-    "Nasi kuning",
-    "Nasi lemak",
-    "Nasi putih",
-    "Nasi liwet",
-  ]
-  const mainDishes = ["Ayam bakar padang", "Ayam geprek", "Ayam fillet", "Semur daging"]
-  const additionalDishes = [
-    "Bakwan jagung",
-    "Bakwan kedelai",
-    "Bakwan kentang",
-  ]
-  const vegetables = ["Tumis", "Bayam", "Kangkung"]
-  const sauces = ["Sambal Terasi", "Sambal Ijo", "Sambal"]
-  const chips = ["Kerupuk", "Kerupuk udang kecil", "Kerupuk udang besar"]
-  const fruits = ["Apel", "Jeruk", "Pisang"]
-  const mineralWaters = ["Aqua 220", "Aqua 330", "Aqua 600", "Le Minerale 330", "Sanford 220", "Sanford 330", "Sanford 600"]
-  const boxes = [
-    "Kotak putih snack",
-    "Bungkus ala nasi padang",
-    "Kotak bento",
-    "Kotak snack ksm",
-    "Kotak warna 19x19",
-    "Kotak putih 18x18",
-    "Mika bento",
-  ]
-  const arrives = [
-    "01:00:00",
-    "01:30:00",
-    "02:00:00",
-    "02:30:00",
-    "03:00:00",
-    "03:30:00",
-    "04:00:00",
-    "04:30:00",
-    "05:00:00",
-    "05:30:00",
-    "06:00:00",
-    "06:30:00",
-    "07:00:00",
-    "07:30:00",
-    "08:00:00",
-    "08:30:00",
-    "09:00:00",
-    "09:30:00",
-    "10:00:00",
-    "10:30:00",
-    "11:00:00",
-    "11:30:00",
-    "12:00:00",
-    "12:30:00",
-    "13:00:00",
-    "13:30:00",
-    "14:00:00",
-    "14:30:00",
-    "15:00:00",
-    "15:30:00",
-    "16:00:00",
-    "16:30:00",
-    "17:00:00",
-    "17:30:00",
-    "18:00:00",
-    "18:30:00",
-    "19:00:00",
-    "19:30:00",
-    "20:00:00",
-    "20:30:00",
-    "21:00:00",
-    "21:30:00",
-    "22:00:00",
-    "22:30:00",
-    "23:00:00",
-    "23:30:00",
-    "00:00:00",
-    "00:30:00",
-  ]
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     if (selectedDate) {
@@ -254,7 +143,7 @@ export default function Page() {
     }
   }
 
-  const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
+  const updateField = <K extends keyof OrderFormValues>(field: K, value: OrderFormValues[K]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -262,6 +151,18 @@ export default function Page() {
     month: "long",
     year: "numeric",
   })
+
+  const normalizedProduct = formValues.product.trim().toLowerCase()
+  const filteredPackageOptions = normalizedProduct
+    ? packageOptions.filter((pkg) => pkg.product?.trim().toLowerCase() === normalizedProduct)
+    : packageOptions
+  const selectedPackage = formValues.packageId
+    ? packageOptions.find((pkg) => pkg.id.toString() === formValues.packageId)
+    : undefined
+  const mainDishFieldCount = getMainDishFieldCount(
+    selectedPackage ? formatPackageLabel(selectedPackage) : ""
+  )
+  const filteredMainDishes = filterMainDishesBySubname(selectedPackage?.subname, dishOptions.mainDish)
 
   const deriveProductsFromPackages = (packages: PackageOption[]) => {
     const uniqueProducts = new Map<string, string>()
@@ -283,14 +184,16 @@ export default function Page() {
     const loadOptions = async () => {
       setOptionsLoading(true)
       try {
-        const [customers, packages, staffs] = await Promise.all([
+        const [customers, packages, staffs, dishes] = await Promise.all([
           fetchCustomers(),
           fetchPackages(),
           fetchStaffs(),
+          fetchDishes({ page: 1, pageSize: 500 }),
         ])
         setCustomerOptions(customers)
         setPackageOptions(packages)
         setProductOptions(deriveProductsFromPackages(packages))
+        setDishOptions(mapDishesToOrderOptions(dishes.data))
         const eligibleDrivers = staffs.filter((staff) => {
           const normalizedPosition = normalizeRoleValue(staff.position)
           const normalizedDepartment = normalizeRoleValue(staff.department)
@@ -336,6 +239,9 @@ export default function Page() {
           amount: order.amount,
           deliveryCharge: order.deliveryCharge,
           totalAmount: order.totalAmount,
+          payment1: order.payment1,
+          payment2: order.payment2,
+          payment3: order.payment3,
           deliveryNote: order.deliveryNote,
           arriveTime: order.arriveTime,
           leaveTime: order.leaveTime,
@@ -344,6 +250,8 @@ export default function Page() {
           recipientAddress: order.recipientAddress,
           rice: order.rice,
           mainDish: order.mainDish,
+          mainDish2: order.mainDish2,
+          mainDish3: order.mainDish3,
           additionalDish: order.additionalDish,
           vegetable: order.vegetable,
           sauce: order.sauce,
@@ -353,6 +261,8 @@ export default function Page() {
           box: order.box,
           pudding: order.pudding,
           snack: order.snack,
+          staffId: "",
+          travelLetterNo: "",
           staffDriverId: order.staffDriverId,
         })
 
@@ -405,7 +315,7 @@ export default function Page() {
       const next = { ...prev }
       let changed = false
 
-      const setValue = (key: keyof FormValues, value: string) => {
+      const setValue = (key: keyof OrderFormValues, value: string) => {
         if (prev[key] !== value) {
           next[key] = value
           changed = true
@@ -420,6 +330,55 @@ export default function Page() {
     })
   }, [formValues.qty, formValues.sellingPrice, formValues.brokerFee, formValues.deliveryCharge])
 
+  useEffect(() => {
+    if (!formValues.packageId) return
+
+    const isValid = filteredPackageOptions.some((pkg) => pkg.id.toString() === formValues.packageId)
+    if (!isValid) {
+      setFormValues((prev) => ({ ...prev, packageId: "" }))
+    }
+  }, [filteredPackageOptions, formValues.packageId])
+
+  useEffect(() => {
+    if (filteredMainDishes.length === 0) return
+
+    setFormValues((prev) => {
+      const next = { ...prev }
+      let changed = false
+
+      const clearIfInvalid = (key: "mainDish" | "mainDish2" | "mainDish3") => {
+        if (!prev[key]) return
+        if (filteredMainDishes.some((dish) => dish === prev[key])) return
+        next[key] = ""
+        changed = true
+      }
+
+      clearIfInvalid("mainDish")
+      clearIfInvalid("mainDish2")
+      clearIfInvalid("mainDish3")
+
+      return changed ? next : prev
+    })
+  }, [filteredMainDishes, formValues.mainDish, formValues.mainDish2, formValues.mainDish3])
+
+  useEffect(() => {
+    setFormValues((prev) => {
+      const next = { ...prev }
+      let changed = false
+
+      if (mainDishFieldCount < 2 && prev.mainDish2) {
+        next.mainDish2 = ""
+        changed = true
+      }
+      if (mainDishFieldCount < 3 && prev.mainDish3) {
+        next.mainDish3 = ""
+        changed = true
+      }
+
+      return changed ? next : prev
+    })
+  }, [mainDishFieldCount])
+
   const handleSubmit = async () => {
     if (isSubmitting) return
 
@@ -428,7 +387,7 @@ export default function Page() {
       return
     }
 
-    const requiredMap: Array<[keyof FormValues, string]> = [
+    const requiredMap: Array<[keyof OrderFormValues, string]> = [
       ["orderNo", "Nomor Order"],
       ["customerId", "Customer"],
       ["customerType", "Golongan Customer"],
@@ -462,6 +421,13 @@ export default function Page() {
       ["pudding", "Puding"],
       ["snack", "Snack"],
     ]
+
+    if (mainDishFieldCount >= 2) {
+      requiredMap.push(["mainDish2", "Lauk Utama 2"])
+    }
+    if (mainDishFieldCount >= 3) {
+      requiredMap.push(["mainDish3", "Lauk Utama 3"])
+    }
 
     const missingFields = requiredMap
       .filter(([key]) => !String(formValues[key] ?? "").trim())
@@ -522,10 +488,15 @@ export default function Page() {
           amount: formValues.amount,
           delivery_charge: formValues.deliveryCharge,
           total_amount: formValues.totalAmount,
+          payment1: formValues.payment1,
+          payment2: formValues.payment2,
+          payment3: formValues.payment3,
         },
         orderMenuData: {
           rice: formValues.rice,
           main_dish: formValues.mainDish,
+          main_dish2: mainDishFieldCount >= 2 ? formValues.mainDish2 : "",
+          main_dish3: mainDishFieldCount >= 3 ? formValues.mainDish3 : "",
           additional_dish: formValues.additionalDish,
           vegetable: formValues.vegetable,
           sauce: formValues.sauce,
@@ -705,9 +676,9 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Paket</SelectLabel>
-                    {packageOptions.map((packageses) => (
+                    {filteredPackageOptions.map((packageses) => (
                       <SelectItem key={packageses.id} value={packageses.id.toString()}>
-                        {packageses.package_name}
+                        {formatPackageLabel(packageses)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -807,6 +778,42 @@ export default function Page() {
               />
             </div>
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+              <Label htmlFor="payment1">Pembayaran 1</Label>
+              <Input
+                type="number"
+                name="payment1"
+                id="payment1"
+                placeholder="0"
+                required
+                value={formValues.payment1}
+                onChange={(e) => updateField("payment1", e.target.value)}
+              />
+            </div>
+            <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+              <Label htmlFor="payment2">Pembayaran 2</Label>
+              <Input
+                type="number"
+                name="payment2"
+                id="payment2"
+                placeholder="0"
+                required
+                value={formValues.payment2}
+                onChange={(e) => updateField("payment2", e.target.value)}
+              />
+            </div>
+            <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+              <Label htmlFor="payment3">Pembayaran 3</Label>
+              <Input
+                type="number"
+                name="payment3"
+                id="payment3"
+                placeholder="0"
+                required
+                value={formValues.payment3}
+                onChange={(e) => updateField("payment3", e.target.value)}
+              />
+            </div>
+            <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="delivery_note">Keterangan</Label>
               <Textarea
                 name="delivery_note"
@@ -826,7 +833,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Nasi</SelectLabel>
-                    {rices.map((rice) => (
+                    {dishOptions.rice.map((rice) => (
                       <SelectItem key={rice} value={rice}>
                         {rice}
                       </SelectItem>
@@ -845,7 +852,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Lauk Utama</SelectLabel>
-                    {mainDishes.map((maindish) => (
+                    {filteredMainDishes.map((maindish) => (
                       <SelectItem key={maindish} value={maindish}>
                         {maindish}
                       </SelectItem>
@@ -857,6 +864,46 @@ export default function Page() {
                 Recommend: Ayam bakar padang, Ayam goreng batuaji, Ayam gulai piayu
               </Label>
             </div>
+            {mainDishFieldCount >= 2 ? (
+              <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                <Label htmlFor="main_dish2">Lauk Utama 2 *</Label>
+                <Select value={formValues.mainDish2} onValueChange={(value) => updateField("mainDish2", value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih lauk utama 2" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Lauk Utama</SelectLabel>
+                      {filteredMainDishes.map((maindish) => (
+                        <SelectItem key={maindish} value={maindish}>
+                          {maindish}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+            {mainDishFieldCount >= 3 ? (
+              <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                <Label htmlFor="main_dish3">Lauk Utama 3 *</Label>
+                <Select value={formValues.mainDish3} onValueChange={(value) => updateField("mainDish3", value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih lauk utama 3" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Lauk Utama</SelectLabel>
+                      {filteredMainDishes.map((maindish) => (
+                        <SelectItem key={maindish} value={maindish}>
+                          {maindish}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
               <Label htmlFor="additional_dish">Tambahan</Label>
               <Select value={formValues.additionalDish} onValueChange={(value) => updateField("additionalDish", value)}>
@@ -866,7 +913,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Lauk Tambahan</SelectLabel>
-                    {additionalDishes.map((additionaldish) => (
+                    {dishOptions.additionalDish.map((additionaldish) => (
                       <SelectItem key={additionaldish} value={additionaldish}>
                         {additionaldish}
                       </SelectItem>
@@ -885,7 +932,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Sayur</SelectLabel>
-                    {vegetables.map((vegetable) => (
+                    {dishOptions.vegetable.map((vegetable) => (
                       <SelectItem key={vegetable} value={vegetable}>
                         {vegetable}
                       </SelectItem>
@@ -904,7 +951,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Sambal</SelectLabel>
-                    {sauces.map((sauce) => (
+                    {dishOptions.sauce.map((sauce) => (
                       <SelectItem key={sauce} value={sauce}>
                         {sauce}
                       </SelectItem>
@@ -923,7 +970,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Kerupuk</SelectLabel>
-                    {chips.map((chip) => (
+                    {dishOptions.chip.map((chip) => (
                       <SelectItem key={chip} value={chip}>
                         {chip}
                       </SelectItem>
@@ -944,7 +991,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Buah</SelectLabel>
-                    {fruits.map((fruit) => (
+                    {dishOptions.fruit.map((fruit) => (
                       <SelectItem key={fruit} value={fruit}>
                         {fruit}
                       </SelectItem>
@@ -963,7 +1010,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Air Mineral</SelectLabel>
-                    {mineralWaters.map((mineralWater) => (
+                    {dishOptions.mineralWater.map((mineralWater) => (
                       <SelectItem key={mineralWater} value={mineralWater}>
                         {mineralWater}
                       </SelectItem>
@@ -981,7 +1028,7 @@ export default function Page() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Kotak</SelectLabel>
-                    {boxes.map((box) => (
+                    {dishOptions.box.map((box) => (
                       <SelectItem key={box} value={box}>
                         {box}
                       </SelectItem>

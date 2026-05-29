@@ -12,31 +12,9 @@ import { useParams, useRouter } from 'next/navigation'
 import { fetchCustomerForEdit, updateCustomer } from '@/features/admin/update-customer'
 import { getCurrentUser } from '@/features/admin/create-order'
 import { fetchStaffs, type Staff } from '@/features/admin/get-staff'
-
-const DEFAULT_COORDINATE: Coordinate = { lat: 1.134118, lng: 104.027631 }
-
-type FormValues = {
-  salesName: string
-  staffId: string
-  gender: string
-  name: string
-  companyName: string
-  phoneNo: string
-  company: string
-  address: string
-}
-
-type CurrentUser = {
-  id: number
-  staff?: {
-    id: number | null
-    position?: string
-    department?: string
-  }
-}
-
-const normalizeRoleValue = (value: string | null | undefined) =>
-  value?.toLowerCase() ?? ""
+import { DEFAULT_COORDINATE } from '@/const/default-coordinates'
+import { CustomerFormValues } from '@/types/admin/customer'
+import { CurrentUser } from '@/types/admin/user'
 
 export default function page() {
   const router = useRouter()
@@ -48,7 +26,7 @@ export default function page() {
   const [coordinates, setCoordinates] = useState<Coordinate>(DEFAULT_COORDINATE)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false)
-  const [formValues, setFormValues] = useState<FormValues>({
+  const [formValues, setFormValues] = useState<CustomerFormValues>({
     salesName: '',
     staffId: '',
     gender: '',
@@ -58,6 +36,9 @@ export default function page() {
     company: '',
     address: '',
   })
+
+  const normalizeRoleValue = (value: string | null | undefined) =>
+    value?.toLowerCase() ?? ""
 
   const normalizedPosition = normalizeRoleValue(currentUser?.staff?.position)
   const normalizedDepartment = normalizeRoleValue(currentUser?.staff?.department)
@@ -177,7 +158,7 @@ export default function page() {
     setFormValues((prev) => ({ ...prev, salesName: staffName }))
   }, [currentUser?.staff?.id, formValues.salesName, isSalesMarketing, salesStaffOptions])
 
-  const updateField = <K extends keyof FormValues>(field: K, value: FormValues[K]) => {
+  const updateField = <K extends keyof CustomerFormValues>(field: K, value: CustomerFormValues[K]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -202,7 +183,7 @@ export default function page() {
       return
     }
 
-    const requiredMap: Array<[keyof FormValues, string]> = [
+    const requiredMap: Array<[keyof CustomerFormValues, string]> = [
       ['salesName', 'Nama Sales'],
       ['gender', 'Gender'],
       ['name', 'Nama'],
