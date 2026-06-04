@@ -18,12 +18,12 @@ export default function AccountPage() {
     username: "",
     email: "",
     phone_no: "",
-    ktp_no: "",
+    // ktp_no: "",
     department: "",
     position: "",
   })
   const hasStaff = useMemo(
-    () => values.department !== "" || values.position !== "" || values.ktp_no !== "",
+    () => values.department !== "" || values.position !== "",
     [values]
   )
   const extractUserData = (payload: any) => {
@@ -36,7 +36,7 @@ export default function AccountPage() {
         phone_no: user?.phone_no ?? user?.phone ?? "",
         staff: staffAttrs
           ? {
-              ktp_no: staffAttrs?.ktp_no ?? staffAttrs?.ktpNo ?? "",
+              // ktp_no: staffAttrs?.ktp_no ?? staffAttrs?.ktpNo ?? "",
               department: staffAttrs?.department ?? "",
               position: staffAttrs?.position ?? "",
             }
@@ -66,7 +66,7 @@ export default function AccountPage() {
           username: normalized.username ?? "",
           email: normalized.email ?? "",
           phone_no: normalized.phone_no ?? "",
-          ktp_no: normalized.staff?.ktp_no ?? "",
+          // ktp_no: normalized.staff?.ktp_no ?? "",
           department: normalized.staff?.department ?? "",
           position: normalized.staff?.position ?? "",
         })
@@ -155,7 +155,7 @@ export default function AccountPage() {
 
               {hasStaff && (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <Label htmlFor="ktp_no">Nomor KTP</Label>
                     <Input
                       id="ktp_no"
@@ -167,7 +167,7 @@ export default function AccountPage() {
                       disabled={loading}
                     />
                     <ZodErrors error={accountState?.zodErrors?.ktp_no} />
-                  </div>
+                  </div> */}
                   <div className="space-y-2">
                     <Label htmlFor="department">Department</Label>
                     <Input id="department" value={values.department} disabled readOnly />

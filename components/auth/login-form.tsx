@@ -69,13 +69,6 @@ export function LoginForm({
         <SubmitButton text="Masuk" loadingText="Loading" className="cursor-pointer w-full bg-[#8D0000] text-white hover:bg-red-700"/>
         <StrapiErrors error={formState?.strapiErrors} />
       </div>
-      <div className="text-center text-sm text-muted-foreground">
-        Belum punya akun?{" "}
-        <Link href="/auth/register" className="underline underline-offset-4 text-black">
-          Daftar
-        </Link>
-      </div>
-      <Button className="cursor-pointer w-full border border-red-900 bg-white text-red-900 hover:bg-red-700 hover:text-white">Verifikasi Nomor Telepon</Button>
     </form>
   )
 }

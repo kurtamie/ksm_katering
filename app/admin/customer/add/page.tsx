@@ -315,7 +315,7 @@ export default function page() {
                         onClick={handleSubmit}
                         disabled={isSubmitting}
                     >
-                        {isSubmitting ? 'Menyimpan...' : 'SELANJUTNYA'}
+                        {isSubmitting ? 'Menyimpan...' : 'SIMPAN'}
                     </Button>
                 </div>
             </div>

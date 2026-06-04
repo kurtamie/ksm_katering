@@ -392,7 +392,7 @@ export default function page() {
                     <DetailRow label="Nama" value={selectedStaff.name} />
                     <DetailRow label="Departemen" value={selectedStaff.department} />
                     <DetailRow label="Posisi" value={selectedStaff.position} />
-                    <DetailRow label="No. KTP" value={selectedStaff.ktp_no} />
+                    {/* <DetailRow label="No. KTP" value={selectedStaff.ktp_no} /> */}
                     <DetailRow label="Status" value={selectedStaff.staff_status} />
                     <DetailRow label="User" value={selectedStaff.user_id} />
                     <DetailRow label="No. HP" value={selectedStaff.phone_no} />

@@ -170,27 +170,6 @@ export default function CustomerPageClient() {
                             variant="outline"
                             size="icon"
                           >
-                            <a href={`tel:${phoneLink}`} onClick={(event) => event.stopPropagation()}>
-                              <IoIosCall />
-                            </a>
-                          </Button>
-                        ) : (
-                          <Button
-                            className='cursor-pointer border text-black bg-white'
-                            variant="outline"
-                            size="icon"
-                            disabled
-                          >
-                            <IoIosCall />
-                          </Button>
-                        )}
-                        {hasPhone ? (
-                          <Button
-                            asChild
-                            className='cursor-pointer border text-black bg-white hover:bg-black hover:text-white'
-                            variant="outline"
-                            size="icon"
-                          >
                             <a href={`https://wa.me/${phoneLink}`} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
                               <IoChatbox />
                             </a>
