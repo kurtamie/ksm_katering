@@ -3,6 +3,160 @@ import { OrderDishOptions } from "@/types/admin/order"
 
 export const DEFAULT_ORDER_NUMBER = "0001"
 
+export type OrderMenuField =
+  | "rice"
+  | "mainDish"
+  | "mainDish2"
+  | "mainDish3"
+  | "additionalDish"
+  | "vegetable"
+  | "sauce"
+  | "chip"
+  | "fruit"
+  | "mineralWater"
+  | "box"
+  | "pudding"
+  | "snack"
+  | "snack2"
+  | "snack3"
+  | "snack4"
+
+export const orderMenuFieldLabels: Record<OrderMenuField, string> = {
+  rice: "Nasi",
+  mainDish: "Lauk Utama",
+  mainDish2: "Lauk Utama 2",
+  mainDish3: "Lauk Utama 3",
+  additionalDish: "Lauk Tambahan",
+  vegetable: "Sayur",
+  sauce: "Sambal",
+  chip: "Kerupuk",
+  fruit: "Buah",
+  mineralWater: "Air Mineral",
+  box: "Kotak",
+  pudding: "Puding",
+  snack: "Snack",
+  snack2: "Snack 2",
+  snack3: "Snack 3",
+  snack4: "Snack 4",
+}
+
+export const orderMenuFields = Object.keys(orderMenuFieldLabels) as OrderMenuField[]
+
+const emptyMenuVisibility = (): Record<OrderMenuField, boolean> => ({
+  rice: false,
+  mainDish: false,
+  mainDish2: false,
+  mainDish3: false,
+  additionalDish: false,
+  vegetable: false,
+  sauce: false,
+  chip: false,
+  fruit: false,
+  mineralWater: false,
+  box: false,
+  pudding: false,
+  snack: false,
+  snack2: false,
+  snack3: false,
+  snack4: false,
+})
+
+const normalizeValue = (value: string | null | undefined) =>
+  String(value ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+
+export const getPackageCode = (packageLabel: string | null | undefined) => {
+  const normalized = normalizeValue(packageLabel)
+  const match = normalized.match(/\bpaket\s*([a-f]\+?)\b/) ?? normalized.match(/\b([a-f]\+?)\b/)
+  return match?.[1]?.toUpperCase() ?? ""
+}
+
+const enableFields = (
+  fields: OrderMenuField[],
+  visibility = emptyMenuVisibility()
+) => {
+  fields.forEach((field) => {
+    visibility[field] = true
+  })
+  return visibility
+}
+
+const mealFields = (
+  mainDishCount: 1 | 2 | 3,
+  includePudding: boolean,
+  includeFruit = true
+) => {
+  const fields: OrderMenuField[] = [
+    "rice",
+    "mainDish",
+    ...(mainDishCount >= 2 ? (["mainDish2"] as OrderMenuField[]) : []),
+    ...(mainDishCount >= 3 ? (["mainDish3"] as OrderMenuField[]) : []),
+    "additionalDish",
+    "vegetable",
+    "sauce",
+    "chip",
+    ...(includeFruit ? (["fruit"] as OrderMenuField[]) : []),
+    "mineralWater",
+    "box",
+    ...(includePudding ? (["pudding"] as OrderMenuField[]) : []),
+  ]
+
+  return enableFields(fields)
+}
+
+export const getOrderMenuFieldVisibility = (
+  product: string | null | undefined,
+  packageLabel: string | null | undefined
+) => {
+  const normalizedProduct = normalizeValue(product)
+  const packageCode = getPackageCode(packageLabel)
+
+  if (normalizedProduct === "custom") {
+    return enableFields(orderMenuFields)
+  }
+
+  if (normalizedProduct === "aqiqah" || normalizedProduct === "tumpeng") {
+    return enableFields(["box"])
+  }
+
+  if (normalizedProduct === "snack kotak" || normalizedProduct === "snack") {
+    if (packageCode === "E" || packageCode === "F") {
+      return enableFields(["snack", "snack2", "snack3", "snack4", "mineralWater", "box"])
+    }
+    if (packageCode === "C" || packageCode === "D") {
+      return enableFields(["snack", "snack2", "snack3", "mineralWater", "box"])
+    }
+    return enableFields(["snack", "snack2", "mineralWater", "box"])
+  }
+
+  if (normalizedProduct === "bento") {
+    if (packageCode === "B") return mealFields(2, true)
+    return mealFields(1, true, false)
+  }
+
+  if (
+    normalizedProduct === "nasi kotak" ||
+    normalizedProduct === "prasmanan" ||
+    normalizedProduct === "prasmanan pernikahan"
+  ) {
+    const mainDishCount = packageCode.startsWith("C")
+      ? 3
+      : packageCode.startsWith("B")
+        ? 2
+        : 1
+    const includePudding =
+      packageCode === "B+" ||
+      packageCode === "C+" ||
+      (normalizedProduct !== "nasi kotak" && packageCode === "A+")
+
+    return mealFields(mainDishCount as 1 | 2 | 3, includePudding)
+  }
+
+  return mealFields(1, false)
+}
+
 export const getMainDishFieldCount = (packageLabel: string | null | undefined) => {
   const normalized = String(packageLabel ?? "")
     .toLowerCase()

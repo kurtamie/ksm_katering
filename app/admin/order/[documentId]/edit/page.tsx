@@ -27,7 +27,7 @@ import { fetchDishes } from "@/features/admin/get-dish"
 import { CustomerOption, OrderDishOptions, OrderFormValues, PackageOption } from "@/types/admin/order";
 import { DEFAULT_DISH_OPTIONS } from "@/const/admin/dish";
 import { DEFAULT_COORDINATE } from "@/const/default-coordinates";
-import { arrives, DEFAULT_ORDER_NUMBER, defaultProducts, getMainDishFieldCount, mapDishesToOrderOptions, suppliers } from "@/const/admin/order";
+import { arrives, DEFAULT_ORDER_NUMBER, defaultProducts, getOrderMenuFieldVisibility, mapDishesToOrderOptions, orderMenuFieldLabels, orderMenuFields, type OrderMenuField, suppliers } from "@/const/admin/order";
 import { normalizeRoleValue } from "@/const/misc";
 
 const calculateLeaveTime = (arrivalTime: string) => {
@@ -126,6 +126,9 @@ export default function Page() {
     box: "",
     pudding: "",
     snack: "",
+    snack2: "",
+    snack3: "",
+    snack4: "",
     staffId: "",
     travelLetterNo: "",
     staffDriverId: "",
@@ -159,9 +162,16 @@ export default function Page() {
   const selectedPackage = formValues.packageId
     ? packageOptions.find((pkg) => pkg.id.toString() === formValues.packageId)
     : undefined
-  const mainDishFieldCount = getMainDishFieldCount(
-    selectedPackage ? formatPackageLabel(selectedPackage) : ""
+  const selectedPackageLabel = selectedPackage ? formatPackageLabel(selectedPackage) : ""
+  const visibleMenuFields = React.useMemo(
+    () => getOrderMenuFieldVisibility(formValues.product, selectedPackageLabel),
+    [formValues.product, selectedPackageLabel]
   )
+  const hasMenuField = (field: OrderMenuField) => visibleMenuFields[field]
+  const fieldClass = (field: OrderMenuField, className: string) =>
+    hasMenuField(field) ? className : `${className} hidden`
+  const mainDishFieldCount =
+    hasMenuField("mainDish3") ? 3 : hasMenuField("mainDish2") ? 2 : hasMenuField("mainDish") ? 1 : 0
   const filteredMainDishes = filterMainDishesBySubname(selectedPackage?.subname, dishOptions.mainDish)
 
   const deriveProductsFromPackages = (packages: PackageOption[]) => {
@@ -261,6 +271,9 @@ export default function Page() {
           box: order.box,
           pudding: order.pudding,
           snack: order.snack,
+          snack2: order.snack2,
+          snack3: order.snack3,
+          snack4: order.snack4,
           staffId: "",
           travelLetterNo: "",
           staffDriverId: order.staffDriverId,
@@ -366,6 +379,13 @@ export default function Page() {
       const next = { ...prev }
       let changed = false
 
+      orderMenuFields.forEach((field) => {
+        if (visibleMenuFields[field]) return
+        if (!next[field]) return
+        next[field] = ""
+        changed = true
+      })
+
       if (mainDishFieldCount < 2 && prev.mainDish2) {
         next.mainDish2 = ""
         changed = true
@@ -377,7 +397,7 @@ export default function Page() {
 
       return changed ? next : prev
     })
-  }, [mainDishFieldCount])
+  }, [mainDishFieldCount, visibleMenuFields])
 
   const handleSubmit = async () => {
     if (isSubmitting) return
@@ -408,25 +428,13 @@ export default function Page() {
       ["recipientName", "Nama Penerima"],
       ["recipientPhone", "No. HP Penerima"],
       ["recipientAddress", "Alamat Pengiriman"],
-      ["rice", "Nasi"],
-      ["mainDish", "Lauk Utama"],
-      ["additionalDish", "Tambahan"],
-      ["vegetable", "Sayur"],
-      ["sauce", "Sambal"],
-      ["chip", "Kerupuk"],
-      ["fruit", "Buah"],
-      ["mineralWater", "Air Mineral"],
-      ["box", "Kotak"],
-      ["pudding", "Puding"],
-      ["snack", "Snack"],
     ]
 
-    if (mainDishFieldCount >= 2) {
-      requiredMap.push(["mainDish2", "Lauk Utama 2"])
-    }
-    if (mainDishFieldCount >= 3) {
-      requiredMap.push(["mainDish3", "Lauk Utama 3"])
-    }
+    orderMenuFields.forEach((field) => {
+      if (visibleMenuFields[field]) {
+        requiredMap.push([field, orderMenuFieldLabels[field]])
+      }
+    })
 
     const missingFields = requiredMap
       .filter(([key]) => !String(formValues[key] ?? "").trim())
@@ -492,19 +500,22 @@ export default function Page() {
           payment3: formValues.payment3,
         },
         orderMenuData: {
-          rice: formValues.rice,
-          main_dish: formValues.mainDish,
-          main_dish2: mainDishFieldCount >= 2 ? formValues.mainDish2 : "",
-          main_dish3: mainDishFieldCount >= 3 ? formValues.mainDish3 : "",
-          additional_dish: formValues.additionalDish,
-          vegetable: formValues.vegetable,
-          sauce: formValues.sauce,
-          chip: formValues.chip,
-          fruit: formValues.fruit,
-          mineral_water: formValues.mineralWater,
-          box: formValues.box,
-          pudding: formValues.pudding,
-          snack: formValues.snack,
+          rice: hasMenuField("rice") ? formValues.rice : "",
+          main_dish: hasMenuField("mainDish") ? formValues.mainDish : "",
+          main_dish2: hasMenuField("mainDish2") ? formValues.mainDish2 : "",
+          main_dish3: hasMenuField("mainDish3") ? formValues.mainDish3 : "",
+          additional_dish: hasMenuField("additionalDish") ? formValues.additionalDish : "",
+          vegetable: hasMenuField("vegetable") ? formValues.vegetable : "",
+          sauce: hasMenuField("sauce") ? formValues.sauce : "",
+          chip: hasMenuField("chip") ? formValues.chip : "",
+          fruit: hasMenuField("fruit") ? formValues.fruit : "",
+          mineral_water: hasMenuField("mineralWater") ? formValues.mineralWater : "",
+          box: hasMenuField("box") ? formValues.box : "",
+          pudding: hasMenuField("pudding") ? formValues.pudding : "",
+          snack: hasMenuField("snack") ? formValues.snack : "",
+          snack2: hasMenuField("snack2") ? formValues.snack2 : "",
+          snack3: hasMenuField("snack3") ? formValues.snack3 : "",
+          snack4: hasMenuField("snack4") ? formValues.snack4 : "",
         },
       }
 
@@ -825,8 +836,8 @@ export default function Page() {
                 onChange={(e) => updateField("deliveryNote", e.target.value)}
               />
             </div>
-            <div className="order-[33] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="rice"> Nasi</Label>
+            <div className={fieldClass("rice", "order-[33] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="rice"> Nasi *</Label>
               <Select value={formValues.rice} onValueChange={(value) => updateField("rice", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih nasi" />
@@ -844,8 +855,8 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: Nasi putih, nasi padang</Label>
             </div>
-            <div className="order-[34] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="main_dish">Lauk Utama</Label>
+            <div className={fieldClass("mainDish", "order-[34] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="main_dish">Lauk Utama *</Label>
               <Select value={formValues.mainDish} onValueChange={(value) => updateField("mainDish", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih lauk utama" />
@@ -905,8 +916,8 @@ export default function Page() {
                 </Select>
               </div>
             ) : null}
-            <div className="order-[37] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="additional_dish">Tambahan</Label>
+            <div className={fieldClass("additionalDish", "order-[37] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="additional_dish">Tambahan *</Label>
               <Select value={formValues.additionalDish} onValueChange={(value) => updateField("additionalDish", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih lauk tambahan" />
@@ -924,8 +935,8 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: Bakwan jagung, Bakwan kedelai</Label>
             </div>
-            <div className="order-[38] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="vegetable">Sayur</Label>
+            <div className={fieldClass("vegetable", "order-[38] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="vegetable">Sayur *</Label>
               <Select value={formValues.vegetable} onValueChange={(value) => updateField("vegetable", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih sayur" />
@@ -943,8 +954,8 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: Tumis, Bayam</Label>
             </div>
-            <div className="order-[39] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="sauce">Sambal</Label>
+            <div className={fieldClass("sauce", "order-[39] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="sauce">Sambal *</Label>
               <Select value={formValues.sauce} onValueChange={(value) => updateField("sauce", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih sambal" />
@@ -962,8 +973,8 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: Sambal Terasi, Sambal Ijo</Label>
             </div>
-            <div className="order-[40] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="chip">Kerupuk</Label>
+            <div className={fieldClass("chip", "order-[40] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="chip">Kerupuk *</Label>
               <Select value={formValues.chip} onValueChange={(value) => updateField("chip", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kerupuk" />
@@ -983,8 +994,8 @@ export default function Page() {
                 Recommend: Kerupuk, Kerupuk udang kecil, kerupuk udang besar
               </Label>
             </div>
-            <div className="order-[41] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="fruit">Buah</Label>
+            <div className={fieldClass("fruit", "order-[41] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="fruit">Buah *</Label>
               <Select value={formValues.fruit} onValueChange={(value) => updateField("fruit", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih buah" />
@@ -1002,8 +1013,8 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: Apel, Jeruk</Label>
             </div>
-            <div className="order-[42] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="mineral_water">Air Mineral</Label>
+            <div className={fieldClass("mineralWater", "order-[42] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="mineral_water">Air Mineral *</Label>
               <Select value={formValues.mineralWater} onValueChange={(value) => updateField("mineralWater", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih air mineral" />
@@ -1020,8 +1031,8 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="order-[43] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="box">Kotak</Label>
+            <div className={fieldClass("box", "order-[43] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="box">Kotak *</Label>
               <Select value={formValues.box} onValueChange={(value) => updateField("box", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kotak" />
@@ -1038,8 +1049,8 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="order-[44] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="pudding">Puding</Label>
+            <div className={fieldClass("pudding", "order-[44] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="pudding">Puding *</Label>
               <Input
                 type="text"
                 name="pudding"
@@ -1049,8 +1060,8 @@ export default function Page() {
                 onChange={(e) => updateField("pudding", e.target.value)}
               />
             </div>
-            <div className="order-[45] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-              <Label htmlFor="snack">Snack</Label>
+            <div className={fieldClass("snack", "order-[45] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="snack">Snack *</Label>
               <Input
                 type="text"
                 name="snack"
@@ -1058,6 +1069,39 @@ export default function Page() {
                 placeholder="Masukkan snack"
                 value={formValues.snack}
                 onChange={(e) => updateField("snack", e.target.value)}
+              />
+            </div>
+            <div className={fieldClass("snack2", "order-[46] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="snack2">Snack 2 *</Label>
+              <Input
+                type="text"
+                name="snack2"
+                id="snack2"
+                placeholder="Masukkan snack 2"
+                value={formValues.snack2}
+                onChange={(e) => updateField("snack2", e.target.value)}
+              />
+            </div>
+            <div className={fieldClass("snack3", "order-[47] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="snack3">Snack 3 *</Label>
+              <Input
+                type="text"
+                name="snack3"
+                id="snack3"
+                placeholder="Masukkan snack 3"
+                value={formValues.snack3}
+                onChange={(e) => updateField("snack3", e.target.value)}
+              />
+            </div>
+            <div className={fieldClass("snack4", "order-[48] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8")}>
+              <Label htmlFor="snack4">Snack 4 *</Label>
+              <Input
+                type="text"
+                name="snack4"
+                id="snack4"
+                placeholder="Masukkan snack 4"
+                value={formValues.snack4}
+                onChange={(e) => updateField("snack4", e.target.value)}
               />
             </div>
             <div className="order-[13] grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">

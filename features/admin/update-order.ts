@@ -42,6 +42,9 @@ export type OrderForEdit = {
   box: string
   pudding: string
   snack: string
+  snack2: string
+  snack3: string
+  snack4: string
   deliveryDate: string
   staffDriverId: string
   coordinates: Coordinate
@@ -100,6 +103,9 @@ export type UpdateOrderPayload = {
     box: string
     pudding: string
     snack: string
+    snack2: string
+    snack3: string
+    snack4: string
   }
 }
 
@@ -241,6 +247,9 @@ export async function fetchOrderForEdit(documentId: string): Promise<OrderForEdi
     box: toStringValue(menuAttrs.box ?? ''),
     pudding: toStringValue(menuAttrs.pudding ?? ''),
     snack: toStringValue(menuAttrs.snack ?? ''),
+    snack2: toStringValue(menuAttrs.snack2 ?? menuAttrs.snack_2 ?? ''),
+    snack3: toStringValue(menuAttrs.snack3 ?? menuAttrs.snack_3 ?? ''),
+    snack4: toStringValue(menuAttrs.snack4 ?? menuAttrs.snack_4 ?? ''),
     deliveryDate: toStringValue(deliveryDate),
     staffDriverId: toStringValue(driverData[0]?.id ?? driverAttrs?.id ?? ''),
     coordinates: coords,

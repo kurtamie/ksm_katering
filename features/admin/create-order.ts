@@ -61,6 +61,9 @@ type OrderPayload = {
     box: string
     pudding: string
     snack: string
+    snack2: string
+    snack3: string
+    snack4: string
   }
 }
 

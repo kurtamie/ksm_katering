@@ -30,6 +30,7 @@ import { generateOrderPdf } from '@/features/admin/generate-pdf-order'
 import { generateInvoiceOrderPdf } from '@/features/admin/generate-invoice-order'
 import { generateDeliveryOrderPdf } from '@/features/admin/generate-delivery-order'
 import { generateOrderExcelReport } from '@/features/admin/generate-order-excel-report'
+import { getOrderMenuFieldVisibility, orderMenuFieldLabels, type OrderMenuField } from '@/const/admin/order'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
 import {
@@ -507,6 +508,34 @@ function OrderPageInner() {
     }
   }
 
+  const selectedMenuFields = selectedOrder
+    ? getOrderMenuFieldVisibility(
+        selectedOrder.product_category,
+        selectedOrder.product_package || selectedOrder.package
+      )
+    : null
+  const canShowMenuField = (field: OrderMenuField) => Boolean(selectedMenuFields?.[field])
+  const selectedMenuValues: Record<OrderMenuField, React.ReactNode> | null = selectedOrder
+    ? {
+        rice: selectedOrder.rice_type,
+        mainDish: selectedOrder.side_dish,
+        mainDish2: selectedOrder.side_dish2,
+        mainDish3: selectedOrder.side_dish3,
+        additionalDish: selectedOrder.additional_dish,
+        vegetable: selectedOrder.vegetable,
+        sauce: selectedOrder.sauce,
+        chip: selectedOrder.chip,
+        fruit: selectedOrder.fruit,
+        mineralWater: selectedOrder.mineral_water,
+        box: selectedOrder.box,
+        pudding: selectedOrder.pudding,
+        snack: selectedOrder.snack,
+        snack2: selectedOrder.snack2,
+        snack3: selectedOrder.snack3,
+        snack4: selectedOrder.snack4,
+      }
+    : null
+
   return (
     <div className="bg-white w-full mx-auto relative">
         <Toaster position="top-right" richColors />
@@ -751,19 +780,17 @@ function OrderPageInner() {
                     <DetailRow label="Status Pengiriman" value={selectedOrder.delivery_status} />
                     <DetailRow label="Jam Sampai" value={selectedOrder.delivery_time} />
                     <DetailRow label="Keterangan" value={selectedOrder.note} />
-                    <DetailRow label="Nasi" value={selectedOrder.rice_type} />
-                    <DetailRow label="Lauk Utama" value={selectedOrder.side_dish} />
-                    <DetailRow label="Lauk Utama 2" value={selectedOrder.side_dish2} />
-                    <DetailRow label="Lauk Utama 3" value={selectedOrder.side_dish3} />
-                    <DetailRow label="Lauk Tambahan" value={selectedOrder.additional_dish} />
-                    <DetailRow label="Sayur" value={selectedOrder.vegetable} />
-                    <DetailRow label="Sambal" value={selectedOrder.sauce} />
-                    <DetailRow label="Kerupuk" value={selectedOrder.chip} />
-                    <DetailRow label="Buah" value={selectedOrder.fruit} />
-                    <DetailRow label="Air Mineral" value={selectedOrder.mineral_water} />
-                    <DetailRow label="Kotak" value={selectedOrder.box} />
-                    <DetailRow label="Puding" value={selectedOrder.pudding} />
-                    <DetailRow label="Snack" value={selectedOrder.snack} />
+                    {selectedMenuValues && (
+                      (Object.keys(orderMenuFieldLabels) as OrderMenuField[])
+                        .filter(canShowMenuField)
+                        .map((field) => (
+                          <DetailRow
+                            key={field}
+                            label={orderMenuFieldLabels[field]}
+                            value={selectedMenuValues[field]}
+                          />
+                        ))
+                    )}
                   </div>
                 </div>
               )}

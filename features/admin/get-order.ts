@@ -48,6 +48,9 @@ export type Order = {
   box: string
   pudding: string
   snack: string
+  snack2: string
+  snack3: string
+  snack4: string
   menu_product: string
   latitude: string
   longitude: string
@@ -341,6 +344,12 @@ const normalizeOrder = (item: any): Order => {
     pudding: withFallback(menuAttrs?.pudding),
 
     snack: withFallback(menuAttrs?.snack),
+
+    snack2: withFallback(menuAttrs?.snack2 ?? menuAttrs?.snack_2),
+
+    snack3: withFallback(menuAttrs?.snack3 ?? menuAttrs?.snack_3),
+
+    snack4: withFallback(menuAttrs?.snack4 ?? menuAttrs?.snack_4),
 
     menu_product: withFallback(
       menuAttrs?.product ||
