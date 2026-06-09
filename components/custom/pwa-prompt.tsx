@@ -25,12 +25,16 @@ function isStandaloneMode() {
 
 export default function PwaPrompt() {
   const deferredPromptRef = React.useRef<BeforeInstallPromptEvent | null>(null);
+  const dismissedRef = React.useRef(false);
   const [canInstall, setCanInstall] = React.useState(false);
   const [isInstalled, setIsInstalled] = React.useState(false);
+  const [isDismissed, setIsDismissed] = React.useState(true);
 
   React.useEffect(() => {
     const installedNow = isStandaloneMode();
     const dismissed = window.localStorage.getItem(PWA_PROMPT_DISMISSED_KEY) === "true";
+    dismissedRef.current = dismissed;
+    setIsDismissed(dismissed);
     setIsInstalled(installedNow);
 
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -39,7 +43,7 @@ export default function PwaPrompt() {
       deferredPromptRef.current = promptEvent;
       (window as WindowWithPwaPrompt).__pwaDeferredPrompt = promptEvent;
 
-      if (!installedNow && !dismissed) {
+      if (!installedNow && !dismissedRef.current) {
         setCanInstall(true);
       }
     };
@@ -51,7 +55,7 @@ export default function PwaPrompt() {
     };
 
     const existingPrompt = (window as WindowWithPwaPrompt).__pwaDeferredPrompt;
-    if (existingPrompt && !installedNow && !dismissed) {
+    if (existingPrompt && !installedNow && !dismissedRef.current) {
       deferredPromptRef.current = existingPrompt;
       setCanInstall(true);
     }
@@ -84,10 +88,14 @@ export default function PwaPrompt() {
 
   const hidePrompt = () => {
     window.localStorage.setItem(PWA_PROMPT_DISMISSED_KEY, "true");
+    dismissedRef.current = true;
+    setIsDismissed(true);
+    deferredPromptRef.current = null;
+    (window as WindowWithPwaPrompt).__pwaDeferredPrompt = null;
     setCanInstall(false);
   };
 
-  if (!canInstall || isInstalled) return null;
+  if (!canInstall || isInstalled || isDismissed) return null;
 
   return (
     <div className="fixed bottom-24 left-1/2 z-60 flex min-w-80 -translate-x-1/2 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-lg md:bottom-4">

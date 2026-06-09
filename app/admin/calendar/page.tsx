@@ -132,7 +132,7 @@ export default function Page() {
                   }
                   router.push(`/admin/order?documentId=${order.documentId}`);
                 }}
-                className="w-full text-left text-xs px-2 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                className="w-full rounded bg-red-700 px-2 py-1 text-left text-xs text-white hover:bg-red-800"
               >
                 {order.order_no}
               </button>
@@ -141,7 +141,7 @@ export default function Page() {
               <button
                 type="button"
                 onClick={() => router.push('/admin/order')}
-                className="w-full text-left text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
+                className="w-full rounded bg-red-700 px-2 py-1 text-left text-xs text-white hover:bg-red-800"
               >
                 +{remainingOrders} lainnya
               </button>

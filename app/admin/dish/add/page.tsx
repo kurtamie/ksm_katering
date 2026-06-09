@@ -105,7 +105,7 @@ export default function page() {
                         </Select>
                     </div>
                     <Button 
-                        className='w-full md:w-auto bg-gray-400 text-white'
+                        className='w-full md:w-auto'
                         onClick={handleSubmit}
                         disabled={isSubmitting}
                     >

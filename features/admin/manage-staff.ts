@@ -142,3 +142,44 @@ export async function updateStaffWithUser(
     }
   }
 }
+
+export async function deleteStaffWithUser(
+  documentId: string,
+  userId: number | null
+): Promise<StaffMutationResult> {
+  try {
+    const staffResponse = await fetch(new URL(`/api/staffs/${documentId}`, apiBaseUrl), {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    })
+    const staffResult = await staffResponse.json().catch(() => null)
+
+    if (!staffResponse.ok || staffResult?.error) {
+      return {
+        success: false,
+        error: staffResult?.error?.message ?? "Gagal menghapus staf",
+      }
+    }
+
+    if (userId) {
+      const userResponse = await fetch(new URL(`/api/users/${userId}`, apiBaseUrl), {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      })
+      const userResult = await userResponse.json().catch(() => null)
+      if (!userResponse.ok || userResult?.error) {
+        return {
+          success: false,
+          error: userResult?.error?.message ?? "Staf dihapus, tetapi user gagal dihapus",
+        }
+      }
+    }
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Terjadi kesalahan",
+    }
+  }
+}

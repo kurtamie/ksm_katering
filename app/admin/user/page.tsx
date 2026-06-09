@@ -19,14 +19,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Edit, LaptopMinimalCheck, UserIcon, X } from 'lucide-react';
+import { Edit, Trash2, UserIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Drawer,
   DrawerClose,
@@ -39,6 +33,17 @@ import { FaPlus } from 'react-icons/fa';
 import { fetchStaffs, type Staff } from '@/features/admin/get-staff';
 import { Input } from '@/components/ui/input';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -46,31 +51,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { deleteStaffWithUser } from '@/features/admin/manage-staff';
+import { Toaster } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 export default function page() {  
-  const [selectedUser, setSelectedUser] = useState('current');
   const [staffs, setStaffs] = useState<Staff[]>([])
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
-  const [accessMap, setAccessMap] = useState<Record<string, string[]>>({})
+  const [isDeletingKey, setIsDeletingKey] = useState<string | null>(null)
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [searchDepartment, setSearchDepartment] = useState("")
   const [searchPosition, setSearchPosition] = useState("")
-  const users = [
-    'Pengguna Aktif', 'Diblokir', 'Tidak Aktif',
-  ];
-  const accessOptions = [
-    { id: "order", label: "Order", route: "/admin/order" },
-    { id: "customer", label: "Pelanggan", route: "/admin/customer" },
-    { id: "menu", label: "Menu", route: "/admin/menu" },
-    { id: "dish", label: "Dish", route: "/admin/dish" },
-    { id: "graph", label: "Grafik", route: "/admin/graph" },
-    { id: "calendar", label: "Kalender", route: "/admin/calendar" },
-    { id: "user", label: "User", route: "/admin/user" },
-  ]
-
   React.useEffect(() => {
     let isMounted = true
 
@@ -99,16 +93,25 @@ export default function page() {
     setDrawerOpen(true)
   }
 
-  const handleToggleAccess = (staffKey: string, route: string) => {
-    setAccessMap((prev) => {
-      const current = new Set(prev[staffKey] ?? [])
-      if (current.has(route)) {
-        current.delete(route)
-      } else {
-        current.add(route)
+  const handleDeleteStaff = async (staff: Staff, staffKey: string) => {
+    if (!staff.documentId) {
+      toast.error("Document ID staf tidak valid")
+      return
+    }
+
+    setIsDeletingKey(staffKey)
+    try {
+      const result = await deleteStaffWithUser(staff.documentId, staff.user_numeric_id ?? null)
+      if (!result.success) {
+        throw new Error(result.error || "Gagal menghapus staf")
       }
-      return { ...prev, [staffKey]: Array.from(current) }
-    })
+      setStaffs((prev) => prev.filter((item, index) => getStaffKey(item, index) !== staffKey))
+      toast.success("Staf berhasil dihapus")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus staf")
+    } finally {
+      setIsDeletingKey(null)
+    }
   }
 
   const normalizedDepartment = searchDepartment.trim().toLowerCase()
@@ -162,6 +165,7 @@ export default function page() {
 
   return (
     <div className='bg-white w-full mx-auto'>
+        <Toaster position="top-right" richColors />
         <div className='border-b-1 py-4 px-4 max-w-7xl border-black w-full flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
             <h1 className='font-bold text-xl'>Manajemen Akun Internal</h1>
             <div className='flex gap-2'>
@@ -172,23 +176,6 @@ export default function page() {
         </div>
         <div className="mb-6 p-4">
             <div className='gap-6 flex flex-wrap items-center'>
-                <Label>Status :</Label>
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectGroup>
-                    <SelectLabel>Status User</SelectLabel>
-                    <SelectItem value="current">Pengguna Aktif</SelectItem>
-                    {users.map((user, idx) => (
-                        <SelectItem key={idx} value={idx.toString()}>
-                        {user}
-                        </SelectItem>
-                    ))}
-                    </SelectGroup>
-                </SelectContent>
-                </Select>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="min-w-[180px] justify-between">
@@ -244,21 +231,19 @@ export default function page() {
                   <TableHead>No. Hp</TableHead>
                   <TableHead>Bagian</TableHead>
                   <TableHead>Posisi</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead className='text-center'>Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                   {pagedStaffs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-sm text-gray-500">
+                      <TableCell colSpan={5} className="text-center text-sm text-gray-500">
                         Belum ada data staf
                       </TableCell>
                     </TableRow>
                   ) : (
                     pagedStaffs.map((staff, index) => {
                       const staffKey = getStaffKey(staff, index)
-                      const activeRoutes = accessMap[staffKey] ?? []
 
                       return (
                         <TableRow
@@ -275,51 +260,44 @@ export default function page() {
                           <TableCell>{staff.phone_no}</TableCell>
                           <TableCell>{staff.department}</TableCell>
                           <TableCell>{staff.position}</TableCell>
-                          <TableCell>{staff.staff_status}</TableCell>
                           <TableCell>
                             <div className="flex gap-2 justify-center">
                               {staff.documentId && (
                                 <Link href={`/admin/user/${staff.documentId}/edit`} onClick={(event) => event.stopPropagation()}>
                                   <Button
-                                    className='bg-white border border-gray-500 hover:bg-black cursor-pointer'
+                                    className='bg-white border border-red-700 text-red-700 hover:bg-red-700 hover:text-white cursor-pointer'
                                     size="icon"
                                   >
-                                    <Edit className="h-4 w-4 text-gray-500 hover:text-white" />
+                                    <Edit className="h-4 w-4" />
                                   </Button>
                                 </Link>
                               )}
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button 
-                                    className='bg-white border border-gray-500 hover:bg-black cursor-pointer' 
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    className='cursor-pointer'
                                     size="icon"
+                                    disabled={!staff.documentId || isDeletingKey === staffKey}
                                     onClick={(event) => event.stopPropagation()}
                                   >
-                                    <LaptopMinimalCheck className="h-4 w-4 text-gray-500 hover:text-white" />
-                                  </Button> 
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  className="w-56"
-                                  align="end"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  <div className="space-y-3">
-                                    <div className="text-sm font-semibold">Akses Menu</div>
-                                    <div className="space-y-2">
-                                      {accessOptions.map((option) => (
-                                        <label key={`${staffKey}-${option.id}`} className="flex items-center gap-2 text-sm">
-                                          <Checkbox
-                                            checked={activeRoutes.includes(option.route)}
-                                            onCheckedChange={() => handleToggleAccess(staffKey, option.route)}
-                                            onClick={(event) => event.stopPropagation()}
-                                          />
-                                          <span>{option.label}</span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent onClick={(event) => event.stopPropagation()}>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Hapus staf?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Akun {staff.name} akan dihapus. Tindakan ini tidak bisa dibatalkan.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteStaff(staff, staffKey)}>
+                                      Ya, hapus
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -403,7 +381,6 @@ export default function page() {
                     <DetailRow label="Departemen" value={selectedStaff.department} />
                     <DetailRow label="Posisi" value={selectedStaff.position} />
                     {/* <DetailRow label="No. KTP" value={selectedStaff.ktp_no} /> */}
-                    <DetailRow label="Status" value={selectedStaff.staff_status} />
                     <DetailRow label="User" value={selectedStaff.user_id} />
                     <DetailRow label="No. HP" value={selectedStaff.phone_no} />
                   </div>

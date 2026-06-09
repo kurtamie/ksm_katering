@@ -17,7 +17,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import Image from 'next/image'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,17 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel"
 import { Button } from '@/components/ui/button'
-import { Eye } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { FaPlus } from 'react-icons/fa'
@@ -47,7 +36,6 @@ import { fetchMenus, type MenuPackage } from '@/features/admin/get-menu'
 import { deleteMenu } from '@/features/admin/delete-menu'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
-import { getStrapiURL } from '@/lib/utils'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getCurrentUser } from '@/features/admin/create-order'
 
@@ -62,20 +50,6 @@ export default function page() {
   const formatPrice = (value: string) => {
     if (!value || value === "-") return "-"
     return value
-  }
-
-  const resolveImageUrl = (value: string) => {
-    const trimmed = value?.trim()
-    if (!trimmed || trimmed === "-") {
-      return "/asset/login.svg"
-    }
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-      return trimmed
-    }
-    if (trimmed.startsWith("/")) {
-      return getStrapiURL(trimmed)
-    }
-    return trimmed
   }
 
   const normalizeRoleValue = (value: string | null | undefined) =>
@@ -162,7 +136,7 @@ export default function page() {
   const pagedMenus = filteredMenus.slice(startIndex, endIndex)
 
   const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1)
-  const tableColumnCount = canManage ? 7 : 6
+  const tableColumnCount = canManage ? 6 : 5
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return
@@ -261,7 +235,6 @@ export default function page() {
                 <TableHead className='text-center'>Jenis Menu</TableHead>
                 <TableHead className='text-center'>Harga</TableHead>
                 <TableHead className='text-center'>Produk</TableHead>
-                <TableHead className='text-center'>Detail Menu</TableHead>
                 {canManage && <TableHead className='text-center'>Aksi</TableHead>}
               </TableRow>
             </TableHeader>
@@ -275,7 +248,6 @@ export default function page() {
               ) : (
                 pagedMenus.map((menu, index) => {
                   const identifier = menu.documentId ?? (menu.id !== null ? String(menu.id) : "")
-                  const imageSrc = resolveImageUrl(menu.image_url)
                   const displayIndex = startIndex + index + 1
 
                   return (
@@ -285,66 +257,12 @@ export default function page() {
                       <TableCell className='text-center'>{menu.subname}</TableCell>
                       <TableCell className='text-center'>{formatPrice(menu.price)}</TableCell>
                       <TableCell className='text-center'>{menu.product}</TableCell>
-                      <TableCell className='flex items-center justify-center'>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button className='bg-white border border-gray-500 hover:bg-gray-600 cursor-pointer hover:text-white' size="icon">
-                                <Eye className="h-4 w-4 text-gray-500" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="max-h-[80vh] overflow-y-auto">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className='flex items-center justify-center font-bold'>Detail Paket</AlertDialogTitle>
-                                  <Carousel className="w-full max-w-xs mx-auto">
-                                    <CarouselContent>
-                                        <CarouselItem>
-                                          <div className="p-1">
-                                            <Card>
-                                              <CardContent className="flex aspect-square items-center justify-center p-6">
-                                                <Image
-                                                  src={imageSrc}
-                                                  alt={menu.package_name}
-                                                  width={300}
-                                                  height={300}
-                                                  className="object-contain"
-                                                  unoptimized
-                                                />
-                                              </CardContent>
-                                            </Card>
-                                          </div>
-                                        </CarouselItem>
-                                    </CarouselContent>
-                                    <CarouselPrevious />
-                                    <CarouselNext />
-                                  </Carousel>
-                                <div className='flex flex-col space-y-4'>
-                                  <Badge className='text-[#EF3936] bg-[#FDECEC] mt-6 h-8'>{menu.product}</Badge>
-                                  <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
-                                    <h1 className='font-bold break-words'>{menu.package_name}</h1>
-                                    <h1 className='text-[#EF4444] font-bold'>{formatPrice(menu.price)}</h1>
-                                  </div>
-                                  <div>
-                                    <h1 className='font-bold'>Jenis Menu</h1>
-                                    <h1 className='text-sm break-words'>{menu.subname}</h1>
-                                  </div>
-                                  <div>
-                                    <h1 className='font-bold'>Deskripsi</h1>
-                                    <h1 className='text-sm break-words'>{menu.description}</h1>
-                                  </div>
-                                </div>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Tutup</AlertDialogCancel>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                      </TableCell>
                       {canManage && (
                         <TableCell>
                           <div className="flex gap-2 justify-center">
                             <Button
                               asChild
-                              className='bg-white border border-gray-500 hover:bg-gray-600 text-gray-500 cursor-pointer hover:text-white'
+                              className='bg-white border border-red-700 text-red-700 hover:bg-red-700 hover:text-white cursor-pointer'
                               disabled={!identifier}
                             >
                               <Link href={identifier ? `/admin/menu/${identifier}/edit` : "#"}>

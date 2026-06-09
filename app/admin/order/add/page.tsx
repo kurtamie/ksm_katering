@@ -829,14 +829,14 @@ export default function Page() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <div className="mt-6 md:mt-8 flex flex-col gap-4">
-          <div className="flex flex-col py-4 md:py-6">
+        <div className="mt-2 md:mt-2 flex flex-col gap-4">
+          <div className="flex flex-col py-4 md:py-4">
             <h1 className="font-bold text-lg md:text-xl text-gray-600">FORM PESANAN</h1>
             <div className="w-full h-px bg-gray-200 my-4 md:my-6"></div>
           </div>
-          <div className="w-full mb-6 md:mb-8 flex flex-col gap-4">
-            <h2 className="order-[10] rounded-lg bg-white px-4 py-3 text-base font-bold text-red-800">Data Pesanan</h2>
-            <div className="order-[11] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+          <div className="w-full mb-6 md:mb-8 -mt-4 flex flex-col gap-0">
+            <h2 className="order-[10] rounded-t-lg bg-white px-4 py-3 text-base font-bold text-red-800">Data Pesanan</h2>
+            <div className="order-[11] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
                 <Label htmlFor="order_no">Nomor pesanan</Label>
                 <Input
                 type="text"
@@ -847,8 +847,8 @@ export default function Page() {
                 readOnly
               />
             </div>
-            <h2 className="order-[20] rounded-lg bg-white px-4 py-3 font-bold text-red-800">Data Pelanggan</h2>
-            <div className="order-[22] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <h2 className="order-[20] mt-4 rounded-t-lg bg-white px-4 py-3 font-bold text-red-800">Data Pelanggan</h2>
+            <div className="order-[22] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="customer_id">Pelanggan *</Label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Select
@@ -885,11 +885,11 @@ export default function Page() {
                 </Button>
               </div>
             </div>
-            <h2 className="order-[30] rounded-lg bg-white px-4 py-3 text-base font-bold text-red-800">Detail Pesanan</h2>
-            <h2 className="order-[50] rounded-lg bg-white px-4 py-3 text-base font-bold text-red-800">Detail Harga</h2>
+            <h2 className="order-[30] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-bold text-red-800">Detail Pesanan</h2>
+            <h2 className="order-[49] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-bold text-red-800">Detail Harga</h2>
 
             {isAdminOperational ? (
-              <div className="order-[21] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+              <div className="order-[21] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
                 <Label htmlFor="staff_id">Staf Sales</Label>
                 <Select
                   value={formValues.staffId}
@@ -918,11 +918,11 @@ export default function Page() {
                 </Select>
               </div>
             ) : null}
-            <div className="order-[12] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[12] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="created_by">Bulan</Label>
               <Input type="text" name="created_by" id="created_by" value={currentMonthLabel} readOnly />
             </div>
-            <div className="order-[23] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[23] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="customer_type">Golongan Pelanggan *</Label>
               <ToggleGroup
                 type="single"
@@ -933,21 +933,21 @@ export default function Page() {
                 size="sm"
                 className="grid grid-cols-2 gap-2 md:grid-cols-4"
               >
-                <ToggleGroupItem value="pemerintah" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
+                <ToggleGroupItem value="pemerintah" className="data-[state=on]:bg-red-700 data-[state=on]:text-white data-[state=on]:border-gray-300">
                   Pemerintah
                 </ToggleGroupItem>
-                <ToggleGroupItem value="swasta" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
+                <ToggleGroupItem value="swasta" className="data-[state=on]:bg-red-700 data-[state=on]:text-white data-[state=on]:border-gray-300">
                   Swasta
                 </ToggleGroupItem>
-                <ToggleGroupItem value="personal" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
+                <ToggleGroupItem value="personal" className="data-[state=on]:bg-red-700 data-[state=on]:text-white data-[state=on]:border-gray-300">
                   Personal
                 </ToggleGroupItem>
-                <ToggleGroupItem value="bumn" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
+                <ToggleGroupItem value="bumn" className="data-[state=on]:bg-red-700 data-[state=on]:text-white data-[state=on]:border-gray-300">
                   BUMN
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
-            <div className="order-[16] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[16] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="executor_name">Tim Eksekusi *</Label>
               <ToggleGroup
                 type="single"
@@ -958,18 +958,18 @@ export default function Page() {
                 size="sm"
                 className="grid grid-cols-2 gap-2 md:grid-cols-3"
               >
-                <ToggleGroupItem value="tim_kotak" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
+                <ToggleGroupItem value="tim_kotak" className="data-[state=on]:bg-red-700 data-[state=on]:text-white data-[state=on]:border-gray-300">
                   Tim Kotak
                 </ToggleGroupItem>
-                <ToggleGroupItem value="tim_prasmanan" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
+                <ToggleGroupItem value="tim_prasmanan" className="data-[state=on]:bg-red-700 data-[state=on]:text-white data-[state=on]:border-gray-300">
                   Tim Prasmanan
                 </ToggleGroupItem>
-                <ToggleGroupItem value="tim_snack" className="data-[state=on]:bg-gray-200 data-[state=on]:text-gray-800 data-[state=on]:border-gray-300">
+                <ToggleGroupItem value="tim_snack" className="data-[state=on]:bg-red-700 data-[state=on]:text-white data-[state=on]:border-gray-300">
                   Tim Snack
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
-            <div className="order-[17] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[17] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4">
               <Label htmlFor="nama">Pemasok</Label>
               <Select value={formValues.supplier} onValueChange={(value) => updateField("supplier", value)}>
                 <SelectTrigger className="w-full">
@@ -987,7 +987,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="order-[31] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[31] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="product">Produk *</Label>
               <Select value={formValues.product} onValueChange={(value) => updateField("product", value)}>
                 <SelectTrigger className="w-full">
@@ -1005,7 +1005,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="order-[32] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[32] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="product">Paket *</Label>
               <Select
                 value={formValues.packageId}
@@ -1035,7 +1035,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="order-[49] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[50] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="qty">Jumlah Pesanan *</Label>
               <Input
                 type="number"
@@ -1046,7 +1046,7 @@ export default function Page() {
                 onChange={(e) => updateField("qty", e.target.value)}
               />
             </div>
-            <div className="order-[51] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[51] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="selling_price">Harga Jual (dalam ribuan) *</Label>
               <Input
                 type="number"
@@ -1057,7 +1057,7 @@ export default function Page() {
                 onChange={(e) => updateField("sellingPrice", e.target.value)}
               />
             </div>
-            {/* <div className="grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            {/* <div className="grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="broker_fee">Bayaran Jasa Broker</Label>
               <Input
                 type="number"
@@ -1068,7 +1068,7 @@ export default function Page() {
                 onChange={(e) => updateField("brokerFee", e.target.value)}
               />
             </div> */}
-            <div className="order-[52] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[52] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="price_for_ksm">Harga Untuk KSM</Label>
               <Input
                 type="number"
@@ -1079,7 +1079,7 @@ export default function Page() {
                 onChange={(e) => updateField("priceForKsm", e.target.value)}
               />
             </div>
-            <div className="order-[53] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[53] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="min_selling_price">Harga Minimum</Label>
               <Input
                 type="number"
@@ -1090,7 +1090,7 @@ export default function Page() {
                 onChange={(e) => updateField("minSellingPrice", e.target.value)}
               />
             </div>
-            <div className="order-[54] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[54] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="amount">Subtotal Harga</Label>
               <Input
                 type="number"
@@ -1101,7 +1101,7 @@ export default function Page() {
                 onChange={(e) => updateField("amount", e.target.value)}
               />
             </div>
-            <div className="order-[55] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[55] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="delivery_charge">Biaya Pengiriman</Label>
               <Input
                 type="number"
@@ -1112,7 +1112,7 @@ export default function Page() {
                 onChange={(e) => updateField("deliveryCharge", e.target.value)}
               />
             </div>
-            <div className="order-[56] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[56] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="total_amount">Total Harga</Label>
               <Input
                 type="number"
@@ -1123,7 +1123,7 @@ export default function Page() {
                 onChange={(e) => updateField("totalAmount", e.target.value)}
               />
             </div>
-            <div className="order-[57] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[57] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment1">Pembayaran 1</Label>
               <Input
                 type="number"
@@ -1134,7 +1134,7 @@ export default function Page() {
                 onChange={(e) => updateField("payment1", e.target.value)}
               />
             </div>
-            <div className="order-[58] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[58] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment2">Pembayaran 2</Label>
               <Input
                 type="number"
@@ -1145,7 +1145,7 @@ export default function Page() {
                 onChange={(e) => updateField("payment2", e.target.value)}
               />
             </div>
-            <div className="order-[59] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[59] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment3">Pembayaran 3</Label>
               <Input
                 type="number"
@@ -1156,7 +1156,7 @@ export default function Page() {
                 onChange={(e) => updateField("payment3", e.target.value)}
               />
             </div>
-            <div className="order-[48] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[48] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4">
               <Label htmlFor="delivery_note">Keterangan</Label>
               <Textarea
                 name="delivery_note"
@@ -1166,7 +1166,7 @@ export default function Page() {
                 onChange={(e) => updateField("deliveryNote", e.target.value)}
               />
             </div>
-            <div className={fieldClass("rice", "order-[33] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("rice", "order-[33] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="rice"> Nasi *</Label>
               <Select value={formValues.rice} onValueChange={(value) => updateField("rice", value)}>
                 <SelectTrigger className="w-full">
@@ -1185,7 +1185,7 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.rice}</Label>
             </div>
-            <div className={fieldClass("mainDish", "order-[34] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("mainDish", "order-[34] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="main_dish">Lauk Utama *</Label>
               <Select value={formValues.mainDish} onValueChange={(value) => updateField("mainDish", value)}>
                 <SelectTrigger className="w-full">
@@ -1207,7 +1207,7 @@ export default function Page() {
               </Label>
             </div>
             {mainDishFieldCount >= 2 ? (
-              <div className="order-[35] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+              <div className="order-[35] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
                 <Label htmlFor="main_dish2">Lauk Utama 2 *</Label>
                 <Select value={formValues.mainDish2} onValueChange={(value) => updateField("mainDish2", value)}>
                   <SelectTrigger className="w-full">
@@ -1227,7 +1227,7 @@ export default function Page() {
               </div>
             ) : null}
             {mainDishFieldCount >= 3 ? (
-              <div className="order-[36] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+              <div className="order-[36] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
                 <Label htmlFor="main_dish3">Lauk Utama 3 *</Label>
                 <Select value={formValues.mainDish3} onValueChange={(value) => updateField("mainDish3", value)}>
                   <SelectTrigger className="w-full">
@@ -1246,7 +1246,7 @@ export default function Page() {
                 </Select>
               </div>
             ) : null}
-            <div className={fieldClass("additionalDish", "order-[37] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("additionalDish", "order-[37] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="additional_dish">Tambahan *</Label>
               <Select value={formValues.additionalDish} onValueChange={(value) => updateField("additionalDish", value)}>
                 <SelectTrigger className="w-full">
@@ -1265,7 +1265,7 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.additionalDish}</Label>
             </div>
-            <div className={fieldClass("vegetable", "order-[38] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("vegetable", "order-[38] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="vegetable">Sayur *</Label>
               <Select value={formValues.vegetable} onValueChange={(value) => updateField("vegetable", value)}>
                 <SelectTrigger className="w-full">
@@ -1284,7 +1284,7 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.vegetable}</Label>
             </div>
-            <div className={fieldClass("sauce", "order-[39] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("sauce", "order-[39] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="sauce">Sambal *</Label>
               <Select value={formValues.sauce} onValueChange={(value) => updateField("sauce", value)}>
                 <SelectTrigger className="w-full">
@@ -1303,7 +1303,7 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.sauce}</Label>
             </div>
-            <div className={fieldClass("chip", "order-[40] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("chip", "order-[40] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="chip">Kerupuk *</Label>
               <Select value={formValues.chip} onValueChange={(value) => updateField("chip", value)}>
                 <SelectTrigger className="w-full">
@@ -1324,7 +1324,7 @@ export default function Page() {
                 Recommend: {menuRecommendations.chip}
               </Label>
             </div>
-            <div className={fieldClass("fruit", "order-[41] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("fruit", "order-[41] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="fruit">Buah *</Label>
               <Select value={formValues.fruit} onValueChange={(value) => updateField("fruit", value)}>
                 <SelectTrigger className="w-full">
@@ -1343,7 +1343,7 @@ export default function Page() {
               </Select>
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.fruit}</Label>
             </div>
-            <div className={fieldClass("mineralWater", "order-[42] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("mineralWater", "order-[42] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="mineral_water">Air Mineral *</Label>
               <Select value={formValues.mineralWater} onValueChange={(value) => updateField("mineralWater", value)}>
                 <SelectTrigger className="w-full">
@@ -1361,7 +1361,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className={fieldClass("box", "order-[43] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("box", "order-[43] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="box">Kotak *</Label>
               <Select value={formValues.box} onValueChange={(value) => updateField("box", value)}>
                 <SelectTrigger className="w-full">
@@ -1379,7 +1379,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className={fieldClass("pudding", "order-[44] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("pudding", "order-[44] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="pudding">Puding *</Label>
               <Input
                 type="text"
@@ -1390,7 +1390,7 @@ export default function Page() {
                 onChange={(e) => updateField("pudding", e.target.value)}
               />
             </div>
-            <div className={fieldClass("snack", "order-[45] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("snack", "order-[45] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="snack">Snack *</Label>
               <Input
                 type="text"
@@ -1401,7 +1401,7 @@ export default function Page() {
                 onChange={(e) => updateField("snack", e.target.value)}
               />
             </div>
-            <div className={fieldClass("snack2", "order-[46] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("snack2", "order-[46] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="snack2">Snack 2 *</Label>
               <Input
                 type="text"
@@ -1412,7 +1412,7 @@ export default function Page() {
                 onChange={(e) => updateField("snack2", e.target.value)}
               />
             </div>
-            <div className={fieldClass("snack3", "order-[47] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("snack3", "order-[47] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
               <Label htmlFor="snack3">Snack 3 *</Label>
               <Input
                 type="text"
@@ -1423,7 +1423,7 @@ export default function Page() {
                 onChange={(e) => updateField("snack3", e.target.value)}
               />
             </div>
-            <div className={fieldClass("snack4", "order-[48] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6")}>
+            <div className={fieldClass("snack4", "order-[48] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4")}>
               <Label htmlFor="snack4">Snack 4 *</Label>
               <Input
                 type="text"
@@ -1434,7 +1434,7 @@ export default function Page() {
                 onChange={(e) => updateField("snack4", e.target.value)}
               />
             </div>
-            <div className="order-[13] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[13] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="delivery_date">Tanggal Kirim</Label>
               <div className="relative flex gap-2">
                 <Input
@@ -1461,7 +1461,7 @@ export default function Page() {
                 </Popover>
               </div>
             </div>
-            <div className="order-[14] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[14] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="arrive_time">Jam Sampai *</Label>
               <Select value={formValues.arriveTime} onValueChange={(value) => updateField("arriveTime", value)}>
                 <SelectTrigger className="w-full">
@@ -1479,7 +1479,7 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="order-[15] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[15] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="leave">Berangkat</Label>
               <Input
                 type="text"
@@ -1490,7 +1490,7 @@ export default function Page() {
                 disabled
               />
             </div>
-            <div className="order-[24] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[24] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="recipient_name">Nama Penerima *</Label>
               <Input
                 type="text"
@@ -1501,7 +1501,7 @@ export default function Page() {
                 onChange={(e) => updateField("recipientName", e.target.value)}
               />
             </div>
-            <div className="order-[25] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[25] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="recipient_phone_no">No HP Penerima *</Label>
               <Input
                 type="text"
@@ -1512,7 +1512,7 @@ export default function Page() {
                 onChange={(e) => updateField("recipientPhone", e.target.value)}
               />
             </div>
-            <div className="order-[26] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[26] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="recipient_address">Alamat *</Label>
               <Input
                 type="text"
@@ -1523,10 +1523,10 @@ export default function Page() {
                 onChange={(e) => updateField("recipientAddress", e.target.value)}
               />
             </div>
-            <div className="order-[27] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[27] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4">
               <MapCoordinatePicker value={coordinates} onChange={setCoordinates} />
             </div>
-            <div className="order-[60] grid w-full max-w-full items-center gap-1.5 rounded-lg bg-white p-4 md:p-6">
+            <div className="order-[60] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6">
             <Button className="w-full md:w-auto text-white cursor-pointer" onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting ? "Menyimpan..." : "SIMPAN"}
             </Button>

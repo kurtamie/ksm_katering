@@ -140,11 +140,11 @@ export default function page() {
               <div className="flex items-center gap-3">
                 <h1 className='font-bold text-xl'>Manajemen Lauk</h1>
                 <Button
-                  className="cursor-pointer flex items-center p-2 bg-background rounded-lg shadow-sm"
+                  className="cursor-pointer flex items-center p-2 rounded-lg"
                   onClick={handleRefreshDishes}
                   disabled={isRefreshing}
                 >
-                  <IoIosRefresh className={`text-black hover:text-white ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <IoIosRefresh className={isRefreshing ? 'animate-spin' : ''} />
                 </Button>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -171,7 +171,7 @@ export default function page() {
             </div>
             <div className='ml-0 flex gap-2'>
                 <Link href={"/admin/dish/add"}>
-                    <Button className='cursor-pointer bg-gray-400'><FaPlus />Tambah Lauk</Button>
+                    <Button className='cursor-pointer'><FaPlus />Tambah Lauk</Button>
                 </Link>
             </div>
         </div>
@@ -211,7 +211,7 @@ export default function page() {
                         <div className="flex gap-2 justify-center">
                           <Button
                             asChild
-                            className='bg-white border border-gray-500 hover:bg-gray-600 text-gray-500 cursor-pointer hover:text-white'
+                            className='bg-white border border-red-700 text-red-700 hover:bg-red-700 hover:text-white cursor-pointer'
                             disabled={!identifier}
                           >
                             <Link href={identifier ? `/admin/dish/${identifier}/edit` : "#"}>
@@ -221,7 +221,7 @@ export default function page() {
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
-                                className='bg-gray-500 hover:bg-gray-600 cursor-pointer hover:text-white'
+                                className='cursor-pointer'
                                 disabled={!identifier || isDeletingId === identifier}
                               >
                                 {isDeletingId === identifier ? "Menghapus..." : "Hapus"}
