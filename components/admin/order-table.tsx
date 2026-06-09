@@ -19,6 +19,8 @@ interface OrderTableProps {
   orders: Order[]
   onOrderClick: (order: Order) => void
   loading?: boolean
+  canAdd?: boolean
+  onAddOrder?: () => void
   selectionMode?: boolean
   selectedOrderKeys?: Set<string>
   onToggleSelect?: (order: Order) => void
@@ -87,6 +89,8 @@ export default function OrderTable({
   orders,
   onOrderClick,
   loading = false,
+  canAdd = false,
+  onAddOrder,
   selectionMode = false,
   selectedOrderKeys = new Set(),
   onToggleSelect,
@@ -184,12 +188,12 @@ export default function OrderTable({
               {selectionMode && (
                 <TableHead className="w-10 font-bold whitespace-nowrap"></TableHead>
               )}
-              <TableHead className="min-w-[150px] font-bold whitespace-nowrap">Nomor Order</TableHead>
-              <TableHead className='min-w-[120px] font-bold whitespace-nowrap'>Customer ID</TableHead>
-              <TableHead className='min-w-[180px] font-bold whitespace-nowrap'>Golongan Customer</TableHead>
+              <TableHead className="min-w-[150px] font-bold whitespace-nowrap">Nomor pesanan</TableHead>
+              <TableHead className='min-w-[120px] font-bold whitespace-nowrap'>ID Pelanggan</TableHead>
+              <TableHead className='min-w-[180px] font-bold whitespace-nowrap'>Golongan Pelanggan</TableHead>
               <TableHead className='min-w-[160px] font-bold whitespace-nowrap'>Kategori Produk</TableHead>
               <TableHead className='min-w-[180px] font-bold whitespace-nowrap'>Nama Paket</TableHead>
-              <TableHead className='min-w-[120px] font-bold whitespace-nowrap'>Driver</TableHead>
+              <TableHead className='min-w-[120px] font-bold whitespace-nowrap'>Kurir</TableHead>
               <TableHead className='min-w-[100px] font-bold whitespace-nowrap'>Jumlah</TableHead>
               <TableHead className='min-w-[150px] font-bold whitespace-nowrap'>Harga Jual KSM</TableHead>
               <TableHead className='min-w-[160px] font-bold whitespace-nowrap'>Harga Pengiriman</TableHead>
@@ -197,7 +201,7 @@ export default function OrderTable({
               <TableHead className='min-w-[140px] font-bold whitespace-nowrap'>Pembayaran 1</TableHead>
               <TableHead className='min-w-[140px] font-bold whitespace-nowrap'>Pembayaran 2</TableHead>
               <TableHead className='min-w-[140px] font-bold whitespace-nowrap'>Pembayaran 3</TableHead>
-              <TableHead className="min-w-[140px] text-right font-bold whitespace-nowrap">Amount</TableHead>
+              <TableHead className="min-w-[140px] text-right font-bold whitespace-nowrap">Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -261,7 +265,11 @@ export default function OrderTable({
           <h1 className='font-bold text-sm mt-4'>Belum Ada Pesanan Masuk</h1>
           <p className='mt-2 text-sm'>Data pesanan akan otomatis dibuat oleh AI</p>
           <p className='mt-2 text-sm'>atau dapat ditambahkan manual oleh sales.</p>
-          <Button className='px-12 py-4 mt-6'>Tambah Pesanan</Button>
+          {canAdd && (
+            <Button className='px-12 py-4 mt-6' onClick={onAddOrder}>
+              Tambah Pesanan
+            </Button>
+          )}
         </div>
       )}
     </div>

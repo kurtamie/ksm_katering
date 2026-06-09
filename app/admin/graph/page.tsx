@@ -71,16 +71,33 @@ const normalizeInvoiceItems = (result: any): Invoice[] => {
 
   return items.map((item: any) => {
     const attributes = item?.attributes ?? item ?? {}
-    const rawAmount =
+    const relationData = (relation: any) => {
+      if (Array.isArray(relation)) return relation
+      if (Array.isArray(relation?.data)) return relation.data
+      if (relation?.data) return [relation.data]
+      return relation ? [relation] : []
+    }
+    const parseAmount = (value: unknown) => {
+      if (typeof value === "number") return Number.isFinite(value) ? value : 0
+      const numeric = Number(String(value ?? "").replace(/[^0-9.-]/g, ""))
+      return Number.isFinite(numeric) ? numeric : 0
+    }
+    const orders = relationData(attributes?.orders)
+    const amountFromOrders = orders.reduce((invoiceTotal: number, order: any) => {
+      const orderAttrs = order?.attributes ?? order ?? {}
+      const details = relationData(orderAttrs?.order_details)
+      return invoiceTotal + details.reduce((orderTotal: number, detail: any) => {
+        const detailAttrs = detail?.attributes ?? detail ?? {}
+        return orderTotal + parseAmount(detailAttrs?.total_amount)
+      }, 0)
+    }, 0)
+    const fallbackAmount = parseAmount(
       attributes?.total_amount ??
-      attributes?.amount ??
-      attributes?.total ??
-      attributes?.total_price ??
-      attributes?.price_total
-    const amountNumeric =
-      typeof rawAmount === "number"
-        ? rawAmount
-        : Number(String(rawAmount ?? "").replace(/[^0-9]/g, "")) || 0
+        attributes?.totalAmount ??
+        attributes?.amount ??
+        attributes?.price_total
+    )
+    const amountNumeric = amountFromOrders > 0 ? amountFromOrders : fallbackAmount
 
     return {
       id: typeof item?.id === "number" ? item.id : null,
@@ -106,6 +123,7 @@ const fetchInvoices = async (): Promise<Invoice[]> => {
   try {
     const url = new URL("/api/invoices", getStrapiURL())
     url.searchParams.set("pagination[pageSize]", "1000")
+    url.searchParams.set("populate[orders][populate][order_details][populate]", "*")
     const response = await fetch(url, {
       method: "GET",
       headers: {

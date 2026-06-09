@@ -25,7 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Calendar,
   },
   {
-    title: "Customer",
+    title: "Pelanggan",
     url: "/admin/customer",
     icon: UsersRound,
   },
@@ -46,7 +46,8 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ]
 
-const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/dish", "/admin/menu", "/admin/account"]
+const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/account"]
+const OPERATIONAL_CRUD_ROUTES = [...BASE_ROUTES, "/admin/dish", "/admin/menu"]
 const DEFAULT_ALLOWED_ROUTES = ["/admin/order", "/admin/account"]
 
 const ROLE_ROUTE_ACCESS = [
@@ -58,12 +59,12 @@ const ROLE_ROUTE_ACCESS = [
   {
     position: "admin_operational",
     department: "operational",
-    routes: [...BASE_ROUTES, "/admin/customer"],
+    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer"],
   },
   {
     position: "supervisor",
     department: "operational",
-    routes: BASE_ROUTES,
+    routes: OPERATIONAL_CRUD_ROUTES,
   },
   {
     position: "prasmanan",
@@ -88,12 +89,12 @@ const ROLE_ROUTE_ACCESS = [
   {
     position: "manager",
     department: "manager",
-    routes: [...BASE_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
+    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
   },
   {
     position: "developer",
     department: "developer",
-    routes: [...BASE_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
+    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
   },
 ]
 

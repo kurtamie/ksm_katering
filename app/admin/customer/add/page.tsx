@@ -134,10 +134,10 @@ export default function page() {
 
         const requiredMap: Array<[keyof CustomerFormValues, string]> = [
             ['staffId', 'Nama Sales'],
-            ['gender', 'Gender'],
+            ['gender', 'Sapaan Pelanggan'],
             ['name', 'Nama'],
             ['companyName', 'Nama Instansi/Perusahaan'],
-            ['phoneNo', 'No. HP'],
+            ['phoneNo', 'No HP'],
             ['company', 'Instansi'],
             ['address', 'Alamat'],
         ]
@@ -177,13 +177,13 @@ export default function page() {
             const result = await createCustomer(payload)
 
             if (!result.success) {
-                throw new Error(result.error || 'Gagal menyimpan customer')
+            throw new Error(result.error || 'Gagal menyimpan pelanggan')
             }
 
-            toast.success('Customer berhasil dibuat')
+            toast.success('Pelanggan berhasil dibuat')
             router.push('/admin/customer')
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Gagal menyimpan customer'
+            const message = error instanceof Error ? error.message : 'Gagal menyimpan pelanggan'
             toast.error(message)
         } finally {
             setIsSubmitting(false)
@@ -194,7 +194,7 @@ export default function page() {
     <div className='w-full bg-[#F5F5F5]'>
         <Toaster position="top-right" richColors />
         <div className='border-b-1 py-4 px-4 max-w-7xl border-black w-full'>
-            <h1 className='font-bold text-xl'>Tambah Customer</h1>
+            <h1 className='font-bold text-xl'>Tambah Pelanggan</h1>
         </div>
         <div className='container w-full md:w-full mx-auto px-4 py-2'>
             <div className='bg-white mt-2 flex flex-col px-4 md:px-8 rounded-lg'>
@@ -213,7 +213,7 @@ export default function page() {
                                 <SelectGroup>
                                     <SelectLabel>Nama Sales</SelectLabel>
                                     {salesStaffOptions.length === 0 ? (
-                                        <div className="px-2 py-1.5 text-sm text-gray-500">Belum ada staff sales</div>
+                                        <div className="px-2 py-1.5 text-sm text-gray-500">Belum ada staf sales</div>
                                     ) : (
                                         salesStaffOptions.map((staff) => (
                                             <SelectItem key={staff.id ?? staff.documentId ?? staff.name} value={String(staff.id)}>
@@ -226,14 +226,14 @@ export default function page() {
                         </Select>
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Gender</Label>
+                        <Label htmlFor="nama">Sapaan Pelanggan</Label>
                         <Select value={formValues.gender} onValueChange={(value) => updateField('gender', value)}>
                             <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select Gender" />
+                                <SelectValue placeholder="Pilih sapaan pelanggan" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
-                                    <SelectLabel>Gender</SelectLabel>
+                                    <SelectLabel>Sapaan Pelanggan</SelectLabel>
                                     <SelectItem value="kak">Kak</SelectItem>
                                     <SelectItem value="bang">Bang</SelectItem>
                                     <SelectItem value="bu">Bu</SelectItem>
@@ -248,7 +248,7 @@ export default function page() {
                             type="text"
                             name="name"
                             id="name"
-                            placeholder="Masukkan nama customer"
+                            placeholder="Masukkan nama pelanggan"
                             required
                             value={formValues.name}
                             onChange={(e) => updateField('name', e.target.value)}
@@ -267,12 +267,12 @@ export default function page() {
                         />
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">no. HP*</Label>
+                        <Label htmlFor="nama">No HP *</Label>
                         <Input
                             type="text"
                             name="phone_no"
                             id="phone_no"
-                            placeholder="Masukkan no. HP"
+                            placeholder="Masukkan No HP"
                             required
                             value={formValues.phoneNo}
                             onChange={(e) => updateField('phoneNo', normalizePhoneNumber(e.target.value))}
@@ -282,11 +282,11 @@ export default function page() {
                         <Label htmlFor="nama">Instansi</Label>
                         <Select value={formValues.company} onValueChange={(value) => updateField('company', value)}>
                             <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select Gender" />
+                                <SelectValue placeholder="Pilih instansi" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
-                                    <SelectLabel>Gender</SelectLabel>
+                                    <SelectLabel>Instansi</SelectLabel>
                                     <SelectItem value="personal">Personal</SelectItem>
                                     <SelectItem value="bumn">BUMN</SelectItem>
                                     <SelectItem value="swasta">Swasta</SelectItem>
@@ -311,7 +311,7 @@ export default function page() {
                         <MapCoordinatePicker value={coordinates} onChange={setCoordinates} />
                     </div>
                     <Button 
-                        className='cursor-pointer w-full md:w-auto bg-gray-400 text-white'
+                        className='cursor-pointer w-full md:w-auto'
                         onClick={handleSubmit}
                         disabled={isSubmitting}
                     >

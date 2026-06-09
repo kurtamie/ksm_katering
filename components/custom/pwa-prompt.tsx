@@ -14,6 +14,8 @@ type WindowWithPwaPrompt = Window & {
   __pwaDeferredPrompt?: BeforeInstallPromptEvent | null;
 };
 
+const PWA_PROMPT_DISMISSED_KEY = "ksm-pwa-prompt-dismissed";
+
 function isStandaloneMode() {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -28,6 +30,7 @@ export default function PwaPrompt() {
 
   React.useEffect(() => {
     const installedNow = isStandaloneMode();
+    const dismissed = window.localStorage.getItem(PWA_PROMPT_DISMISSED_KEY) === "true";
     setIsInstalled(installedNow);
 
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -36,7 +39,7 @@ export default function PwaPrompt() {
       deferredPromptRef.current = promptEvent;
       (window as WindowWithPwaPrompt).__pwaDeferredPrompt = promptEvent;
 
-      if (!installedNow) {
+      if (!installedNow && !dismissed) {
         setCanInstall(true);
       }
     };
@@ -48,7 +51,7 @@ export default function PwaPrompt() {
     };
 
     const existingPrompt = (window as WindowWithPwaPrompt).__pwaDeferredPrompt;
-    if (existingPrompt && !installedNow) {
+    if (existingPrompt && !installedNow && !dismissed) {
       deferredPromptRef.current = existingPrompt;
       setCanInstall(true);
     }
@@ -80,6 +83,7 @@ export default function PwaPrompt() {
   };
 
   const hidePrompt = () => {
+    window.localStorage.setItem(PWA_PROMPT_DISMISSED_KEY, "true");
     setCanInstall(false);
   };
 

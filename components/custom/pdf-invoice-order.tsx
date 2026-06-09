@@ -295,10 +295,10 @@ const InvoiceBody = ({ data }: { data: InvoiceData }) => (
     </View>
 
     <View style={styles.tableHeader}>
-      <Text style={styles.colDescription}>Description</Text>
-      <Text style={styles.colQty}>Qty</Text>
-      <Text style={styles.colUnit}>Unit price</Text>
-      <Text style={styles.colTotal}>Total price</Text>
+      <Text style={styles.colDescription}>Deskripsi</Text>
+      <Text style={styles.colQty}>Jumlah Pesanan</Text>
+      <Text style={styles.colUnit}>Harga Satuan</Text>
+      <Text style={styles.colTotal}>Total Harga</Text>
     </View>
     {data.items.map((item, index) => (
       <View key={`${item.description}-${index}`} style={styles.tableRow}>
@@ -311,7 +311,7 @@ const InvoiceBody = ({ data }: { data: InvoiceData }) => (
 
     <View style={styles.notesRow}>
       <View style={styles.notesBlock}>
-        <Text style={styles.infoLabel}>Notes</Text>
+        <Text style={styles.infoLabel}>Catatan</Text>
         <Text style={styles.infoValue}>{data.notes}</Text>
       </View>
       <View style={styles.totalBlock}>

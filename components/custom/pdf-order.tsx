@@ -157,7 +157,7 @@ export function PdfOrderDocument({ order }: { order: PdfOrderData }) {
       <Page size="A5" style={styles.page}>
         <View style={{ marginBottom: 12 }}>
           <View style={styles.metaRow}>
-            <Text style={styles.label}>Nomor Order</Text>
+            <Text style={styles.label}>Nomor pesanan</Text>
             <Text style={styles.value}>: {order.orderNo}</Text>
             <Text style={styles.label}>Jam Sampai</Text>
             <Text style={styles.value}>: {order.deliveryTime}</Text>

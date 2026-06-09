@@ -17,6 +17,13 @@ type CustomerPayload = {
 type CustomerResult = {
   success: boolean
   error?: string
+  customer?: {
+    id: number
+    name: string
+    phone_no: string
+    staff_id?: number | null
+    staff_document_id?: string | null
+  }
 }
 
 const apiBaseUrl = getStrapiURL()
@@ -55,7 +62,21 @@ export async function createCustomer(payload: CustomerPayload): Promise<Customer
       throw new Error(errorData?.error?.message || 'Gagal membuat customer')
     }
 
-    return { success: true }
+    const result = await response.json().catch(() => null)
+    const item = result?.data ?? result
+    const attributes = item?.attributes ?? item
+
+    return {
+      success: true,
+      customer: item?.id
+        ? {
+            id: item.id,
+            name: attributes?.name ?? '',
+            phone_no: attributes?.phone_no ?? '',
+            staff_id: payload.staff_id ?? null,
+          }
+        : undefined,
+    }
   } catch (error) {
     console.error('Error creating customer:', error)
     return {

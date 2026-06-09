@@ -4,7 +4,8 @@ import type { NextRequest } from "next/server";
 const PROTECTED_PREFIXES = ["/admin", "/dashboard"];
 const AUTH_PREFIX = "/auth";
 
-const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/dish", "/admin/menu", "/admin/account"];
+const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/account"];
+const OPERATIONAL_CRUD_ROUTES = [...BASE_ROUTES, "/admin/dish", "/admin/menu"];
 const DEFAULT_ALLOWED_ROUTES = ["/admin/order", "/admin/account"];
 const ROLE_ROUTE_ACCESS = [
   {
@@ -15,12 +16,12 @@ const ROLE_ROUTE_ACCESS = [
   {
     position: "admin_operational",
     department: "operational",
-    routes: [...BASE_ROUTES, "/admin/customer"],
+    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer"],
   },
   {
     position: "supervisor",
     department: "operational",
-    routes: BASE_ROUTES,
+    routes: OPERATIONAL_CRUD_ROUTES,
   },
   {
     position: "prasmanan",
@@ -45,12 +46,12 @@ const ROLE_ROUTE_ACCESS = [
   {
     position: "manager",
     department: "manager",
-    routes: [...BASE_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
+    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
   },
   {
     position: "developer",
     department: "developer",
-    routes: [...BASE_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
+    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
   },
 ];
 
@@ -63,10 +64,11 @@ const ORDER_ADD_ALLOWED = [
 
 const MENU_ADD_ALLOWED = [
   { position: "admin_operational", department: "operational" },
-  { position: "sales", department: "marketing" },
   { position: "manager", department: "manager" },
   { position: "developer", department: "developer" },
 ]
+
+const DISH_MUTATION_ALLOWED = MENU_ADD_ALLOWED;
 
 const getAllowedRoutes = (position?: string, department?: string) => {
   if (!position || !department) return DEFAULT_ALLOWED_ROUTES;
@@ -147,6 +149,18 @@ export async function middleware(request: NextRequest) {
         );
 
         if (!canAdd) {
+          return redirectTo("/admin/order");
+        }
+      }
+
+      if (pathname.startsWith("/admin/dish/add") || pathname.includes("/admin/dish/")) {
+        const canMutateDish = DISH_MUTATION_ALLOWED.some(
+          (rule) =>
+            rule.position === normalizedPosition &&
+            rule.department === normalizedDepartment
+        );
+
+        if (!canMutateDish) {
           return redirectTo("/admin/order");
         }
       }

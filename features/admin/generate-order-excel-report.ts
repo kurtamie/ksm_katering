@@ -2,12 +2,12 @@ import type { Order } from '@/features/admin/get-order'
 
 const columns: Array<{ header: string; value: (order: Order) => string }> = [
   { header: 'Tanggal', value: (order) => formatDate(order.createdAt) },
-  { header: 'Nomor Order', value: (order) => order.order_no },
-  { header: 'Customer ID', value: (order) => order.customer },
-  { header: 'Golongan Customer', value: (order) => order.customer_type },
+  { header: 'Nomor pesanan', value: (order) => order.order_no },
+  { header: 'ID Pelanggan', value: (order) => order.customer },
+  { header: 'Golongan Pelanggan', value: (order) => order.customer_type },
   { header: 'Kategori Produk', value: (order) => order.category },
   { header: 'Nama Paket', value: (order) => order.package },
-  { header: 'Driver', value: (order) => order.staff_driver_id },
+  { header: 'Kurir', value: (order) => order.staff_driver_id },
   { header: 'Jumlah', value: (order) => order.qty },
   { header: 'Harga Jual KSM', value: (order) => order.price_ksm },
   { header: 'Harga Pengiriman', value: (order) => order.price_send },
@@ -15,7 +15,7 @@ const columns: Array<{ header: string; value: (order: Order) => string }> = [
   { header: 'Pembayaran 1', value: (order) => order.payment1 },
   { header: 'Pembayaran 2', value: (order) => order.payment2 },
   { header: 'Pembayaran 3', value: (order) => order.payment3 },
-  { header: 'Amount', value: (order) => order.amount },
+  { header: 'Total', value: (order) => order.amount },
 ]
 
 const escapeHtml = (value: unknown) =>

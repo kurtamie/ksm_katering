@@ -98,9 +98,9 @@ export default function CustomerPageClient() {
     try {
       const data = await fetchCustomers()
       setCustomers(data)
-      toast.success("Data customer berhasil diperbarui")
+      toast.success("Data pelanggan berhasil diperbarui")
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Gagal memperbarui data customer"
+      const message = error instanceof Error ? error.message : "Gagal memperbarui data pelanggan"
       toast.error(message)
     } finally {
       setIsRefreshing(false)
@@ -115,7 +115,7 @@ export default function CustomerPageClient() {
         <Toaster position="top-right" richColors />
         <div className='border-b-1 py-4 px-4 flex flex-col gap-2 md:flex-row md:justify-between max-w-7xl border-black w-full'>
             <div className="flex items-center gap-3">
-              <h1 className='font-bold text-xl'>Manajemen Customer</h1>
+              <h1 className='font-bold text-xl'>Manajemen Pelanggan</h1>
               {/* <Button
                 variant="outline"
                 size="sm"
@@ -128,7 +128,7 @@ export default function CustomerPageClient() {
             </div>
             <div className='ml-0 flex gap-2'>
                 <Link href={"/admin/customer/add"}>
-                    <Button className='cursor-pointer bg-gray-400'><FaPlus />Tambah Customer</Button>
+                    <Button className='cursor-pointer'><FaPlus />Tambah Pelanggan</Button>
                 </Link>
             </div>
         </div>
@@ -136,7 +136,7 @@ export default function CustomerPageClient() {
           <Table className='border mt-2 mb-8'>
             <TableHeader>
               <TableRow>
-                <TableHead>Gender</TableHead>
+                <TableHead>Sapaan Pelanggan</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead></TableHead>
                 <TableHead className='text-center'>Nama Sales</TableHead>
@@ -146,7 +146,7 @@ export default function CustomerPageClient() {
               {customers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-sm text-gray-500">
-                    Belum ada data customer
+                    Belum ada data pelanggan
                   </TableCell>
                 </TableRow>
               ) : (
@@ -195,7 +195,7 @@ export default function CustomerPageClient() {
 
           <div className='flex justify-between mb-12'>
             <div className='flex justify-start'>
-              <h1>Menampilkan: {customers.length === 0 ? 0 : 1} - {customers.length} Customer</h1>
+              <h1>Menampilkan: {customers.length === 0 ? 0 : 1} - {customers.length} Pelanggan</h1>
             </div>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function CustomerPageClient() {
             <DrawerHeader className="border-b px-4 py-4 md:px-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <DrawerTitle className="text-xl font-bold">
-                  {selectedCustomer ? getDisplayName(selectedCustomer) : "Detail Customer"}
+                  {selectedCustomer ? getDisplayName(selectedCustomer) : "Detail Pelanggan"}
                 </DrawerTitle>
                 <div className="flex flex-wrap items-center gap-2">
                   <AlertDialog>
@@ -221,9 +221,9 @@ export default function CustomerPageClient() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Hapus customer?</AlertDialogTitle>
+                        <AlertDialogTitle>Hapus pelanggan?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Customer ini akan dihapus
+                          Pelanggan ini akan dihapus
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -255,7 +255,7 @@ export default function CustomerPageClient() {
                     </Button>
                   )}
                   <DrawerClose asChild>
-                    <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail customer">
+                    <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail pelanggan">
                       <X className="h-5 w-5" />
                     </Button>
                   </DrawerClose>
@@ -268,14 +268,14 @@ export default function CustomerPageClient() {
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <DetailRow label="Nama Sales" value={selectedCustomer.sales_name} />
-                    <DetailRow label="Gender" value={selectedCustomer.gender} />
+                    <DetailRow label="Sapaan Pelanggan" value={selectedCustomer.gender} />
                     <DetailRow label="Nama" value={selectedCustomer.name} />
                     <DetailRow label="Nama Instansi/Perusahaan" value={selectedCustomer.company_name} />
                     <DetailRow label="No. HP" value={selectedCustomer.phone_no} />
                     <DetailRow label="Instansi" value={selectedCustomer.company} />
                     <DetailRow label="Alamat" value={selectedCustomer.address} />
-                    <DetailRow label="Latitude" value={selectedCustomer.latitude} />
-                    <DetailRow label="Longitude" value={selectedCustomer.longitude} />
+                    <DetailRow label="Lintang" value={selectedCustomer.latitude} />
+                    <DetailRow label="Bujur" value={selectedCustomer.longitude} />
                     <DetailRow label="User" value={selectedCustomer.user_id} />
                   </div>
                 </div>

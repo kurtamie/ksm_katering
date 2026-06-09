@@ -8,6 +8,8 @@ export type Order = {
   staff_document_id?: string | null
   staff_driver_staff_id?: number | null
   staff_driver_document_id?: string | null
+  created_by_id?: number | null
+  created_by_document_id?: string | null
   order_no: string
   customer: string
   customer_type: string
@@ -143,6 +145,30 @@ const fetchStaffForUser = async (userId: number) => {
   return { id: staffId, documentId: staffDocumentId }
 }
 
+const extractCreatedBy = (attributes: any) => {
+  const createdByData = getRelationData(
+    attributes?.createdBy ??
+    attributes?.created_by ??
+    attributes?.created_by_id ??
+    attributes?.createdBy_id
+  )
+  const createdByAttrs = getAttributes(createdByData)
+
+  return {
+    id: parseId(
+      createdByData?.id ??
+      createdByAttrs?.id ??
+      (typeof createdByData === "string" || typeof createdByData === "number" ? createdByData : null)
+    ),
+    documentId: parseDocumentId(
+      createdByData?.documentId ??
+      createdByAttrs?.documentId ??
+      createdByAttrs?.document_id ??
+      (typeof createdByData === "string" ? createdByData : null)
+    ),
+  }
+}
+
 const normalizeOrder = (item: any): Order => {
   const attributes = getAttributes(item)
   const orderId = parseId(item?.id ?? attributes?.id ?? attributes?.order_no ?? attributes?.orderNo)
@@ -152,6 +178,7 @@ const normalizeOrder = (item: any): Order => {
     attributes?.document_id
   )
   const createdDate = attributes.delivery_date || attributes.createdAt || attributes.created_at
+  const createdBy = extractCreatedBy(attributes)
   
   const customerData = getRelationData(attributes.customer_id)
   const customerAttrs = getAttributes(customerData)
@@ -213,6 +240,8 @@ const normalizeOrder = (item: any): Order => {
     staff_document_id: staffDocumentId,
     staff_driver_staff_id: staffDriverId,
     staff_driver_document_id: staffDriverDocumentId,
+    created_by_id: createdBy.id,
+    created_by_document_id: createdBy.documentId,
     order_no: withFallback(
       attributes.order_no ||
       attributes.orderNo ||
@@ -458,7 +487,9 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
 
     let orders: any[] = []
     try {
-      orders = await fetchOrdersFromApi(shouldLimitToStaff, shouldLimitToDriver)
+      orders = shouldLimitToStaff
+        ? await fetchOrdersFromApi(false, false)
+        : await fetchOrdersFromApi(shouldLimitToStaff, shouldLimitToDriver)
     } catch (error) {
       if (!shouldLimitToDriver) {
         throw error
@@ -495,6 +526,7 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
       normalized = normalized.filter((order: any) => {
         if (staffId && order.staff_id === staffId) return true
         if (staffDocumentId && order.staff_document_id === staffDocumentId) return true
+        if (currentUser?.id && order.created_by_id === currentUser.id) return true
         return false
       })
     }

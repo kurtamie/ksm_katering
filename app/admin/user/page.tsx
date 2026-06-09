@@ -19,7 +19,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { LaptopMinimalCheck, UserIcon, X } from 'lucide-react';
+import { Edit, LaptopMinimalCheck, UserIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -63,7 +63,7 @@ export default function page() {
   ];
   const accessOptions = [
     { id: "order", label: "Order", route: "/admin/order" },
-    { id: "customer", label: "Customer", route: "/admin/customer" },
+    { id: "customer", label: "Pelanggan", route: "/admin/customer" },
     { id: "menu", label: "Menu", route: "/admin/menu" },
     { id: "dish", label: "Dish", route: "/admin/dish" },
     { id: "graph", label: "Grafik", route: "/admin/graph" },
@@ -166,7 +166,7 @@ export default function page() {
             <h1 className='font-bold text-xl'>Manajemen Akun Internal</h1>
             <div className='flex gap-2'>
               <Link href={"/admin/user/add"}>
-                <Button className='cursor-pointer bg-gray-400'><FaPlus />Tambah Staff</Button>
+                <Button className='cursor-pointer'><FaPlus />Tambah Staf</Button>
               </Link>
             </div>
         </div>
@@ -252,7 +252,7 @@ export default function page() {
                   {pagedStaffs.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-sm text-gray-500">
-                        Belum ada data staff
+                        Belum ada data staf
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -278,6 +278,16 @@ export default function page() {
                           <TableCell>{staff.staff_status}</TableCell>
                           <TableCell>
                             <div className="flex gap-2 justify-center">
+                              {staff.documentId && (
+                                <Link href={`/admin/user/${staff.documentId}/edit`} onClick={(event) => event.stopPropagation()}>
+                                  <Button
+                                    className='bg-white border border-gray-500 hover:bg-black cursor-pointer'
+                                    size="icon"
+                                  >
+                                    <Edit className="h-4 w-4 text-gray-500 hover:text-white" />
+                                  </Button>
+                                </Link>
+                              )}
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button 
@@ -375,10 +385,10 @@ export default function page() {
             <DrawerHeader className="border-b px-4 py-4 md:px-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <DrawerTitle className="text-xl font-bold">
-                  {selectedStaff?.name ?? "Detail Staff"}
+                  {selectedStaff?.name ?? "Detail Staf"}
                 </DrawerTitle>
                 <DrawerClose asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail staff">
+                  <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail staf">
                     <X className="h-5 w-5" />
                   </Button>
                 </DrawerClose>

@@ -180,6 +180,7 @@ function OrderPageInner() {
   const [userPosition, setUserPosition] = React.useState<string | null>(null)
   const [userDepartment, setUserDepartment] = React.useState<string | null>(null)
   const [currentStaffId, setCurrentStaffId] = React.useState<number | null>(null)
+  const [currentUserId, setCurrentUserId] = React.useState<number | null>(null)
   const [currentStaffDocumentId, setCurrentStaffDocumentId] = React.useState<string | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false)
@@ -197,6 +198,7 @@ function OrderPageInner() {
     const loadCurrentUser = async () => {
       const user = await getCurrentUser()
       if (isMounted) {
+        setCurrentUserId(user?.id ?? null)
         setCurrentStaffId(user?.staff?.id ?? null)
         setCurrentStaffDocumentId(user?.staff?.documentId ?? null)
         setUserPosition(normalizeRoleValue(user?.staff?.position) || null)
@@ -268,6 +270,7 @@ function OrderPageInner() {
       return orders.filter((order) => {
         if (order.staff_id === currentStaffId) return true
         if (currentStaffDocumentId && order.staff_document_id === currentStaffDocumentId) return true
+        if (currentUserId && order.created_by_id === currentUserId) return true
         return false
       })
     }
@@ -280,7 +283,7 @@ function OrderPageInner() {
       if (currentStaffDocumentId && order.staff_document_id === currentStaffDocumentId) return true
       return false
     })
-  }, [orders, userPosition, userDepartment, currentStaffId, currentStaffDocumentId])
+  }, [orders, userPosition, userDepartment, currentStaffId, currentStaffDocumentId, currentUserId])
 
   const dateFilteredVisibleOrders = React.useMemo(() => {
     if (!dateRange?.from) return visibleOrders
@@ -358,6 +361,11 @@ function OrderPageInner() {
       }
       return next
     })
+  }
+
+  const handleAddOrder = () => {
+    if (!permissions.canAdd) return
+    router.push("/admin/order/add")
   }
 
   const handleDeleteOrder = async () => {
@@ -552,17 +560,6 @@ function OrderPageInner() {
               </Button>
             </div>
             <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:justify-end">
-              <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
-                {permissions.canAdd && (
-                  <Link href={"/admin/order/add"}>
-                    <Button variant="default">
-                      <FaPlus />
-                      Tambah Pesanan
-                    </Button>
-                  </Link>
-                )}
-              </div>
-              <div className="hidden h-10 w-px bg-gray-400 md:block" />
               <div className="flex flex-1 items-center gap-2 md:flex-none md:min-w-[340px]">
                 <div className="relative flex w-full items-center gap-2">
                   <Input
@@ -610,20 +607,29 @@ function OrderPageInner() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`h-9 w-9 ${selectionMode ? "bg-gray-200" : ""}`}
-                  onClick={handleToggleSelectionMode}
-                  aria-label="Pilih data pesanan"
-                >
-                  <IoMdCheckboxOutline className="text-2xl sm:text-3xl" />
-                </Button>
               </div>
+              {permissions.canAdd && (
+                <Link href={"/admin/order/add"}>
+                  <Button variant="default">
+                    <FaPlus />
+                    Tambah Pesanan
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
           {canShowSelectedActions && (
-            <div className='flex mx-auto max-w-7xl p-4 gap-2'>
+            <div className='mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 p-4'>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-9 w-9 ${selectionMode ? "bg-gray-200" : ""}`}
+                onClick={handleToggleSelectionMode}
+                aria-label="Pilih data pesanan"
+              >
+                <IoMdCheckboxOutline className="text-2xl sm:text-3xl" />
+              </Button>
+              <div className="flex flex-wrap items-center gap-2">
               {permissions.canExport && (
                 <Button
                   variant="default"
@@ -660,6 +666,20 @@ function OrderPageInner() {
                   {isGeneratingDeliveryOrder ? "Membuat..." : "Surat Jalan"}
                 </Button>
               )}
+              </div>
+            </div>
+          )}
+          {!canShowSelectedActions && (
+            <div className='mx-auto flex max-w-7xl p-4'>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-9 w-9 ${selectionMode ? "bg-gray-200" : ""}`}
+                onClick={handleToggleSelectionMode}
+                aria-label="Pilih data pesanan"
+              >
+                <IoMdCheckboxOutline className="text-2xl sm:text-3xl" />
+              </Button>
             </div>
           )}
         </div>
@@ -668,6 +688,8 @@ function OrderPageInner() {
             orders={dateFilteredVisibleOrders}
             onOrderClick={handleOrderClick}
             loading={isRefreshing}
+            canAdd={permissions.canAdd}
+            onAddOrder={handleAddOrder}
             selectionMode={selectionMode}
             selectedOrderKeys={selectedOrderKeys}
             onToggleSelect={toggleOrderSelection}
@@ -748,7 +770,7 @@ function OrderPageInner() {
               {selectedOrder && (
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <DetailRow label="Nomor Order" value={selectedOrder.order_no} />
+                    <DetailRow label="Nomor Pesanan" value={selectedOrder.order_no} />
                     <DetailRow label="Nomor Telepon" value={selectedOrder.phone} />
                     <DetailRow label="Kategori Produk" value={selectedOrder.product_category} />
                     <DetailRow label="Paket" value={selectedOrder.product_package} />

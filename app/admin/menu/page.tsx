@@ -248,7 +248,7 @@ export default function page() {
             {canManage && (
               <div className='ml-0 flex gap-2'>
                   <Link href={"/admin/menu/add"}>
-                      <Button className='cursor-pointer bg-gray-400'><FaPlus />Tambah Menu</Button>
+                      <Button className='cursor-pointer'><FaPlus />Tambah Menu</Button>
                   </Link>
               </div>
             )}
@@ -258,7 +258,7 @@ export default function page() {
               <TableRow>
                 <TableHead className='text-center'>No</TableHead>
                 <TableHead className='text-center'>Nama Paket</TableHead>
-                <TableHead className='text-center'>Subname</TableHead>
+                <TableHead className='text-center'>Jenis Menu</TableHead>
                 <TableHead className='text-center'>Harga</TableHead>
                 <TableHead className='text-center'>Produk</TableHead>
                 <TableHead className='text-center'>Detail Menu</TableHead>
@@ -323,7 +323,10 @@ export default function page() {
                                     <h1 className='font-bold break-words'>{menu.package_name}</h1>
                                     <h1 className='text-[#EF4444] font-bold'>{formatPrice(menu.price)}</h1>
                                   </div>
-                                  <h1 className='text-sm break-words'>{menu.subname}</h1>
+                                  <div>
+                                    <h1 className='font-bold'>Jenis Menu</h1>
+                                    <h1 className='text-sm break-words'>{menu.subname}</h1>
+                                  </div>
                                   <div>
                                     <h1 className='font-bold'>Deskripsi</h1>
                                     <h1 className='text-sm break-words'>{menu.description}</h1>
@@ -351,7 +354,7 @@ export default function page() {
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button
-                                  className='bg-gray-500 hover:bg-gray-600 cursor-pointer hover:text-white'
+                                  className='cursor-pointer'
                                   disabled={!identifier || isDeletingId === identifier}
                                 >
                                   {isDeletingId === identifier ? "Menghapus..." : "Hapus"}

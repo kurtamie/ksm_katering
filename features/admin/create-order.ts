@@ -461,7 +461,7 @@ export async function fetchNextOrderNumber(): Promise<string> {
     return getNextOrderNumber(lastOrderNo)
   } catch (error) {
     console.error('Error fetching next order number:', error)
-    throw new Error('Gagal mengambil nomor order berikutnya')
+    throw new Error('Gagal mengambil Nomor pesanan berikutnya')
   }
 }
 

@@ -108,12 +108,12 @@ export default function page() {
                       />
                   </div>
                   <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                      <Label htmlFor="subname">Subname</Label>
+                      <Label htmlFor="subname">Jenis Menu</Label>
                       <Input
                         type="text"
                         name="subname"
                         id="subname"
-                        placeholder="Masukkan subname"
+                        placeholder="Masukkan jenis menu"
                         value={formValues.subname}
                         onChange={(e) => updateField('subname', e.target.value)}
                       />
@@ -164,7 +164,7 @@ export default function page() {
                       />
                   </div>
                   <Button
-                      className='w-full md:w-auto bg-gray-400 text-white'
+                      className='w-full md:w-auto'
                       onClick={handleSubmit}
                       disabled={isSubmitting}
                   >

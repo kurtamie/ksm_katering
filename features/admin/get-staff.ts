@@ -9,6 +9,7 @@ export type Staff = {
   ktp_no: string
   staff_status: string
   user_id: string
+  user_numeric_id: number | null
   phone_no: string
   createdAt: string
 }
@@ -78,6 +79,7 @@ const normalizeStaff = (item: any): Staff => {
     ktp_no: withFallback(attributes?.ktp_no || attributes?.ktpNo),
     staff_status: withFallback(attributes?.staff_status || attributes?.staffStatus),
     user_id: withFallback(userAttrs?.username || userAttrs?.email || userAttrs?.id),
+    user_numeric_id: parseId(userData?.id ?? userAttrs?.id),
     phone_no: withFallback(phoneNumber),
     createdAt: withFallback(createdDate),
   }
