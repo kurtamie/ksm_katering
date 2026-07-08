@@ -32,14 +32,17 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { FaPlus } from 'react-icons/fa'
+import { Edit, Trash2 } from 'lucide-react'
 import { IoIosRefresh } from "react-icons/io"
 import { fetchDishes } from '@/features/admin/get-dish'
 import { deleteDish } from '@/features/admin/delete-dish'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { dishTypeOptions, getDishTypeLabel } from '@/const/admin/dish'
+import { dishTypeOptions, getDishTypeLabel, serviceOptions, getServiceLabel } from '@/const/admin/dish'
 import { DishItem } from '@/types/admin/dish'
+import { getCurrentUser } from '@/features/admin/create-order'
+import { getPermissions } from '@/const/permissions'
 
 export default function page() {
   const [dishes, setDishes] = React.useState<DishItem[]>([])
@@ -51,6 +54,26 @@ export default function page() {
   const [isLoading, setIsLoading] = React.useState(false)
   const [totalItems, setTotalItems] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [canManage, setCanManage] = React.useState(false)
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    const loadCurrentUser = async () => {
+      const user = await getCurrentUser()
+      if (!isMounted) return
+      setCanManage(
+        getPermissions(user?.staff?.position ?? null, user?.staff?.department ?? null)
+          .canManageMenu
+      )
+    }
+
+    loadCurrentUser()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   React.useEffect(() => {
     setCurrentPage(1)
@@ -86,7 +109,7 @@ export default function page() {
       setTotalPages(Math.max(1, result.pagination.pageCount))
       return true
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Gagal memuat data lauk"
+      const message = error instanceof Error ? error.message : "Gagal memuat data menu"
       toast.error(message)
       return false
     } finally {
@@ -106,7 +129,7 @@ export default function page() {
     const identifier = dish.documentId ?? (dish.id !== null ? String(dish.id) : "")
 
     if (!identifier) {
-      toast.error("Document ID lauk tidak valid")
+      toast.error("Document ID menu tidak valid")
       return
     }
 
@@ -114,12 +137,12 @@ export default function page() {
     try {
       const result = await deleteDish(identifier)
       if (!result.success) {
-        throw new Error(result.error || "Gagal menghapus lauk")
+        throw new Error(result.error || "Gagal menghapus menu")
       }
       await loadDishes(currentPage, typeFilter)
-      toast.success("Lauk berhasil dihapus")
+      toast.success("menu berhasil dihapus")
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Gagal menghapus lauk"
+      const message = error instanceof Error ? error.message : "Gagal menghapus menu"
       toast.error(message)
     } finally {
       setIsDeletingId(null)
@@ -129,7 +152,7 @@ export default function page() {
   const handleRefreshDishes = async () => {
     const success = await loadDishes(currentPage, typeFilter, true)
     if (success) {
-      toast.success("Data lauk berhasil diperbarui")
+      toast.success("Data menu berhasil diperbarui")
     }
   }
   return (
@@ -138,14 +161,7 @@ export default function page() {
         <div className='border-b-1 flex flex-col gap-4 py-4 px-4 max-w-7xl border-black w-full md:flex-row md:items-center md:justify-between'>
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <h1 className='font-bold text-xl'>Manajemen Lauk</h1>
-                <Button
-                  className="cursor-pointer flex items-center p-2 rounded-lg"
-                  onClick={handleRefreshDishes}
-                  disabled={isRefreshing}
-                >
-                  <IoIosRefresh className={isRefreshing ? 'animate-spin' : ''} />
-                </Button>
+                <h1 className='font-bold text-xl'>Manajemen Menu</h1>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -170,31 +186,36 @@ export default function page() {
               </div>
             </div>
             <div className='ml-0 flex gap-2'>
-                <Link href={"/admin/dish/add"}>
-                    <Button className='cursor-pointer'><FaPlus />Tambah Lauk</Button>
-                </Link>
+                {canManage && (
+                  <Link href={"/admin/dish/add"}>
+                      <Button className='cursor-pointer'><FaPlus />Tambah menu</Button>
+                  </Link>
+                )}
             </div>
         </div>
-        <Table className='border mt-6 mb-8'>
+        <div className="p-4">
+        <div className="rounded-lg border border-gray-200 overflow-hidden mt-6 mb-8">
+        <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className='text-center'>No</TableHead>
-                <TableHead className='text-center'>Nama Lauk</TableHead>
-                <TableHead className='text-center'>Jenis</TableHead>
-                <TableHead className='text-center'>Aksi</TableHead>
+                <TableHead className='text-left'>No</TableHead>
+                <TableHead className='text-left'>Nama menu</TableHead>
+                <TableHead className='text-left'>Jenis</TableHead>
+                <TableHead className='text-left'>Layanan</TableHead>
+                {canManage && <TableHead className='text-center'>Aksi</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-sm text-gray-500">
-                    Memuat data lauk...
+                    Memuat data menu...
                   </TableCell>
                 </TableRow>
               ) : dishes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-sm text-gray-500">
-                    Belum ada data lauk
+                    Belum ada data menu
                   </TableCell>
                 </TableRow>
               ) : (
@@ -204,34 +225,38 @@ export default function page() {
 
                   return (
                     <TableRow key={dish.documentId ?? dish.id ?? index}>
-                      <TableCell className='text-center'>{displayIndex}</TableCell>
-                      <TableCell className="text-center">{dish.name}</TableCell>
-                      <TableCell className='text-center'>{getDishTypeLabel(dish.type)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2 justify-center">
-                          <Button
-                            asChild
-                            className='bg-white border border-red-700 text-red-700 hover:bg-red-700 hover:text-white cursor-pointer'
-                            disabled={!identifier}
-                          >
-                            <Link href={identifier ? `/admin/dish/${identifier}/edit` : "#"}>
-                              <Label>Edit</Label>
-                            </Link>
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                className='cursor-pointer'
-                                disabled={!identifier || isDeletingId === identifier}
-                              >
-                                {isDeletingId === identifier ? "Menghapus..." : "Hapus"}
-                              </Button>
+                      <TableCell className='text-left'>{displayIndex}</TableCell>
+                      <TableCell className="text-left">{dish.name}</TableCell>
+                      <TableCell className='text-left'>{getDishTypeLabel(dish.type)}</TableCell>
+                      <TableCell className='text-left'>{getServiceLabel(dish.service)}</TableCell>
+                     {canManage && (
+                        <TableCell>
+                          <div className="flex gap-2 justify-center">
+                            {identifier && (
+                              <Link href={`/admin/dish/${identifier}/edit`}>
+                                <Button
+                                  className='bg-white border border-red-700 text-red-700 hover:bg-red-700 hover:text-white cursor-pointer'
+                                  size="icon"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  className='cursor-pointer'
+                                  size="icon"
+                                  disabled={!identifier || isDeletingId === identifier}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Hapus lauk?</AlertDialogTitle>
+                                <AlertDialogTitle>Hapus menu?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Lauk {dish.name} akan dihapus. Tindakan ini tidak bisa dibatalkan.
+                                  menu {dish.name} akan dihapus. Tindakan ini tidak bisa dibatalkan.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -244,17 +269,19 @@ export default function page() {
                           </AlertDialog>
                         </div>
                       </TableCell>
+                      )}
                     </TableRow>
                   )
                 })
               )}
             </TableBody>
           </Table>
+          </div>
 
-          <div className='flex flex-col gap-4 mb-12 px-4 md:flex-row md:items-center md:justify-between'>
+          <div className='flex flex-col gap-4 mb-12 md:flex-row md:items-center md:justify-between'>
             <div className='flex justify-start'>
               <h1>
-                Menampilkan: {totalItems === 0 ? 0 : startIndex + 1} - {endIndex} Lauk
+                Menampilkan: {totalItems === 0 ? 0 : startIndex + 1} - {endIndex} menu
               </h1>
             </div>
             <div className='flex justify-end'>
@@ -289,7 +316,8 @@ export default function page() {
                 </PaginationContent>
               </Pagination>
             </div>
-          </div>
+        </div>
+        </div>
     </div>
   )
 }

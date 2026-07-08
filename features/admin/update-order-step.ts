@@ -1,4 +1,6 @@
 import { getStrapiURL } from '@/lib/utils'
+import { fetchOrderByDocumentId } from '@/features/admin/get-order'
+import { isOrderPaid } from '@/const/admin/order'
 
 type UpdateOrderStepResult = {
   success: boolean
@@ -43,6 +45,18 @@ export async function updateOrderStep(
   }
 
   try {
+    const order = await fetchOrderByDocumentId(identifier)
+    if (!order) {
+      return { success: false, error: 'Data pesanan tidak ditemukan' }
+    }
+
+    if (!isOrderPaid(order)) {
+      return {
+        success: false,
+        error: 'Pesanan belum dibayar. Status hanya dapat diperbarui setelah pembayaran lunas.',
+      }
+    }
+
     let imageId: number | null = null
     if (imageFile && step === 'success') {
       imageId = await uploadImage(imageFile)

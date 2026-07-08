@@ -45,6 +45,7 @@ const normalizeDish = (item: any): DishItem => {
     documentId,
     name: withFallback(attributes?.name),
     type: withFallback(attributes?.type),
+    service: withFallback(attributes?.service),
     createdAt: withFallback(createdDate),
   }
 }
@@ -64,6 +65,7 @@ const normalizeDishForForm = (item: any): DishItem => {
     documentId,
     name: toStringValue(attributes?.name),
     type: toStringValue(attributes?.type),
+    service: toStringValue(attributes?.service),
     createdAt: toStringValue(createdDate),
   }
 }

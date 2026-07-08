@@ -80,7 +80,7 @@ export default function page() {
       .map(([, label]) => label)
 
     if (missingFields.length > 0) {
-      toast.error(`Lengkapi field: ${missingFields.join(', ')}`)
+      toast.error(`Lengkapi data: ${missingFields.join(', ')}`)
       return
     }
 
@@ -156,12 +156,12 @@ export default function page() {
                       />
                   </div>
                   <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                      <Label htmlFor="product">Produk *</Label>
+                      <Label htmlFor="product">Layanan *</Label>
                       <Input
                         type="text"
                         name="product"
                         id="product"
-                        placeholder="Masukkan kategori produk"
+                        placeholder="Masukkan kategori layanan"
                         required
                         value={formValues.product}
                         onChange={(e) => updateField('product', e.target.value)}

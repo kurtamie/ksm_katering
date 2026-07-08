@@ -1,9 +1,10 @@
 import { getStrapiURL } from '@/lib/utils'
-import type { DishTypeValue } from '@/const/admin/dish'
+import type { DishTypeValue, ServiceValue } from '@/const/admin/dish'
 
 type DishPayload = {
   name: string | null
   type: DishTypeValue | string | null
+  service: ServiceValue | string | null
 }
 
 type DishResult = {
@@ -17,14 +18,16 @@ export async function createDish(payload: DishPayload): Promise<DishResult> {
   try {
     const normalizedName = payload.name?.trim() ?? ''
     const normalizedType = payload.type?.toString().trim() ?? ''
+        const normalizedService = payload.service?.toString().trim() ?? ''
 
     if (!normalizedName || !normalizedType) {
-      throw new Error('Nama lauk dan jenis wajib diisi')
+      throw new Error('Nama lauk dan jenis, dan layanan wajib diisi')
     }
 
     const existingDishUrl = new URL('/api/dishes', apiBaseUrl)
     existingDishUrl.searchParams.set('filters[name][$eqi]', normalizedName)
     existingDishUrl.searchParams.set('filters[type][$eq]', normalizedType)
+    existingDishUrl.searchParams.set('filters[service][$eq]', normalizedService)
     existingDishUrl.searchParams.set('pagination[page]', '1')
     existingDishUrl.searchParams.set('pagination[pageSize]', '1')
 
@@ -36,7 +39,7 @@ export async function createDish(payload: DishPayload): Promise<DishResult> {
     })
 
     if (!existingDishResponse.ok) {
-      throw new Error('Gagal memverifikasi data lauk')
+      throw new Error('Gagal memverifikasi data menu yang ada')
     }
 
     const existingDishResult = await existingDishResponse.json().catch(() => ({}))
@@ -44,7 +47,7 @@ export async function createDish(payload: DishPayload): Promise<DishResult> {
     if (existingRows.length > 0) {
       return {
         success: false,
-        error: 'Nama lauk sudah ada pada kategori yang sama',
+        error: 'Nama menu sudah ada pada kategori dan layanan yang sama',
       }
     }
 
@@ -53,6 +56,7 @@ export async function createDish(payload: DishPayload): Promise<DishResult> {
       ...payload,
       name: normalizedName,
       type: normalizedType,
+      service: normalizedService,
     }
 
     Object.keys(data).forEach((key) => {
@@ -74,7 +78,7 @@ export async function createDish(payload: DishPayload): Promise<DishResult> {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       console.error('Dish creation error:', errorData)
-      throw new Error(errorData?.error?.message || 'Gagal membuat lauk')
+      throw new Error(errorData?.error?.message || 'Gagal membuat menu')
     }
 
     return { success: true }

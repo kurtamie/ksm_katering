@@ -1,8 +1,9 @@
-import { DishTypeValue } from "@/const/admin/dish";
+import { DishTypeValue, ServiceValue } from "@/const/admin/dish";
 
 export type DishFormValues = {
     name: string;
     type: string;
+    service: string; 
 };
 
 export type DishItem = {
@@ -10,6 +11,7 @@ export type DishItem = {
   documentId: string | null
   name: string
   type: DishTypeValue | string
+  service: ServiceValue | string 
   createdAt: string
 }
 

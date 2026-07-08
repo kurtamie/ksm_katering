@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
+import { normalizeStaffCookies } from "@/const/permissions"
 
 export type UserSession = {
   id?: number | null
@@ -42,10 +43,11 @@ const readUserFromCookies = (): UserSession | null => {
   const userId = parseNumber(readCookie("userId"))
   if (!userId) return null
 
-  const name = readCookie("user_name") ?? "User"
+  const name = readCookie("user_name") ?? "Pengguna"
   const email = readCookie("user_email") ?? ""
   const position = normalizeRole(readCookie("user_position"))
   const department = normalizeRole(readCookie("user_department"))
+  const normalizedRole = normalizeStaffCookies(position, department)
   const staffId = parseNumber(readCookie("user_staff_id"))
   const staffDocumentId = readCookie("user_staff_document_id")
 
@@ -53,8 +55,8 @@ const readUserFromCookies = (): UserSession | null => {
     id: userId,
     name,
     email,
-    position,
-    department,
+    position: normalizedRole.position,
+    department: normalizedRole.department,
     staffId,
     staffDocumentId,
   }
@@ -88,6 +90,7 @@ const normalizeUserFromMe = (payload: any): UserSession | null => {
 
   const normalizedPosition = normalizeRole(position)
   const normalizedDepartment = normalizeRole(department)
+  const normalizedRole = normalizeStaffCookies(normalizedPosition, normalizedDepartment)
 
   const staffId =
     typeof staffIdRaw === "string" || typeof staffIdRaw === "number" ? Number(staffIdRaw) : null
@@ -99,7 +102,7 @@ const normalizeUserFromMe = (payload: any): UserSession | null => {
 
   const id =
     typeof user?.id === "number" || typeof user?.id === "string" ? Number(user.id) : null
-  const name = user?.username ?? user?.name ?? "User"
+  const name = user?.username ?? user?.name ?? "Pengguna"
   const email = user?.email ?? ""
 
   if (!id) return null
@@ -108,8 +111,8 @@ const normalizeUserFromMe = (payload: any): UserSession | null => {
     id,
     name,
     email,
-    position: normalizedPosition,
-    department: normalizedDepartment,
+    position: normalizedRole.position,
+    department: normalizedRole.department,
     staffId: normalizedStaffId,
     staffDocumentId,
   }

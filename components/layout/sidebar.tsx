@@ -27,13 +27,15 @@ export function AppSidebar() {
   const { user } = useUser();
   const userPosition = user?.position ?? null;
   const userDepartment = user?.department ?? null;
-  const userName = user?.name ?? "User";
+  const userName = user?.name ?? "Pengguna";
   const userEmail = user?.email ?? "";
 
   const filteredItems = useMemo(() => {
     const allowedRoutes = getAllowedRoutes(userPosition, userDepartment);
     return NAV_ITEMS.filter((item) => allowedRoutes.includes(item.url));
   }, [userPosition, userDepartment]);
+
+  const isNavLoading = Boolean(user?.id) && !userPosition && !userDepartment;
 
   const onCheckAppUpdate = () => {
     setTimeout(() => {
@@ -47,11 +49,11 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       {/* Desktop: Show Logo */}
-      <SidebarHeader className="hidden md:flex items-center justify-center px-4 py-4">
+      <SidebarHeader className="hidden md:flex items-center justify-center px-4 py-4 overflow-hidden">
         <Image
           src={logo}
           alt="KSM Katering"
-          className="h-12 w-auto shrink-0 group-data-[collapsible=icon]:h-0"
+          className="h-12 w-auto shrink-0 transition-all duration-200 ease-linear group-data-[collapsible=icon]:h-0 group-data-[collapsible=icon]:opacity-0"
           priority
         />
       </SidebarHeader>
@@ -82,7 +84,12 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredItems.map((item) => (
+              {isNavLoading ? (
+                <SidebarMenuItem>
+                  <span className="px-3 py-2 text-sm text-muted-foreground">Memuat menu...</span>
+                </SidebarMenuItem>
+              ) : (
+              filteredItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -95,7 +102,8 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+              ))
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -107,7 +115,7 @@ export function AppSidebar() {
           className="flex w-full flex-col items-start gap-1 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           <span>Perbarui aplikasi</span>
-          <span className="text-xs text-gray-500">( Version V.0.0.1 )</span>
+          <span className="text-xs text-gray-500">( Versi V.0.0.1 )</span>
         </button>
         <form action={logoutAction}>
           <button

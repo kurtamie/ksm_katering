@@ -1,5 +1,6 @@
 import { getStrapiURL } from '@/lib/utils'
 import { getCurrentUser } from '@/features/admin/create-order'
+import { isSalesStaff } from '@/const/permissions'
 
 export type Customer = {
   id: number | null
@@ -20,8 +21,6 @@ export type Customer = {
 }
 
 const apiBaseUrl = getStrapiURL()
-const SALES_POSITION = "sales"
-const MARKETING_DEPARTMENT = "marketing"
 
 const withFallback = (value: unknown): string => {
   if (value === null || value === undefined) return "-"
@@ -148,8 +147,7 @@ export async function fetchCustomers(): Promise<Customer[]> {
     const currentUser = typeof window !== "undefined" ? await getCurrentUser() : null
     const position = currentUser?.staff?.position?.toLowerCase() ?? null
     const department = currentUser?.staff?.department?.toLowerCase() ?? null
-    const shouldLimitToStaff =
-      position === SALES_POSITION && department === MARKETING_DEPARTMENT
+    const shouldLimitToStaff = isSalesStaff(position, department)
     let staffId = currentUser?.staff?.id ?? null
     let staffDocumentId = currentUser?.staff?.documentId ?? null
 

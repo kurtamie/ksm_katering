@@ -10,9 +10,23 @@ import {
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { IoIosRefresh, IoMdCheckboxOutline } from "react-icons/io"
-import { CalendarIcon, X, Printer, Trash2 } from 'lucide-react'
+import { Edit, CalendarIcon, X, Printer, Trash2 } from 'lucide-react'
 import { FaPlus } from "react-icons/fa"
-import OrderTable from '@/components/admin/order-table'
+import OrderTable, {
+  type OrderWithExtras,
+  getLatestInvoice,
+  renderPaymentStatusBadge,
+} from '@/components/admin/order-table'
+import { getOrderStatusLabel } from '@/const/admin/order'
+import Image from 'next/image'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { type DateRange } from "react-day-picker"
@@ -44,94 +58,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-
-type OrderPermissions = {
-  canAdd: boolean
-  canEdit: boolean
-  canDelete: boolean
-  canExport: boolean
-  canPrint: boolean
-  canInvoice: boolean
-  canDeliveryOrder: boolean
-}
-
-const normalizeRoleValue = (value: string | null | undefined) =>
-  value?.toLowerCase() ?? ""
-
-const deriveOrderPermissions = (
-  position: string | null,
-  department: string | null
-): OrderPermissions => {
-  const normalizedPosition = normalizeRoleValue(position)
-  const normalizedDepartment = normalizeRoleValue(department)
-  const isAdminOperational =
-    normalizedPosition === "admin_operational" &&
-    normalizedDepartment === "operational"
-  const isAdminFinance =
-    normalizedPosition === "admin_finance" && normalizedDepartment === "finance"
-  const isSupervisor =
-    normalizedPosition === "supervisor" && normalizedDepartment === "operational"
-  const isPrasmanan =
-    normalizedPosition === "prasmanan" && normalizedDepartment === "operational"
-  const isKitchen =
-    normalizedPosition === "kitchen" && normalizedDepartment === "operational"
-  const isSalesMarketing =
-    normalizedPosition === "sales" && normalizedDepartment === "marketing"
-  const isDriver =
-    normalizedPosition === "driver" && normalizedDepartment === "delivery"
-  const isManager =
-    normalizedPosition === "manager" && normalizedDepartment === "manager"
-  const isDeveloper =
-    normalizedPosition === "developer" && normalizedDepartment === "developer"
-
-  const canAdd =
-    isAdminOperational || isSalesMarketing || isManager || isDeveloper
-  const canEdit =
-    isAdminOperational ||
-    isSupervisor ||
-    isSalesMarketing ||
-    isManager ||
-    isDeveloper
-  const canDelete =
-    isAdminOperational ||
-    isSupervisor ||
-    isSalesMarketing ||
-    isManager ||
-    isDeveloper
-  const canExport =
-    isAdminOperational ||
-    isAdminFinance ||
-    isManager ||
-    isDeveloper
-  const canPrint =
-    isAdminOperational ||
-    isAdminFinance ||
-    isSupervisor ||
-    isManager ||
-    isDeveloper
-
-  if (isPrasmanan || isKitchen || isDriver) {
-    return {
-      canAdd: false,
-      canEdit: false,
-      canDelete: false,
-      canExport: false,
-      canPrint: false,
-      canInvoice: false,
-      canDeliveryOrder: false,
-    }
-  }
-
-  return {
-    canAdd,
-    canEdit,
-    canDelete,
-    canExport,
-    canPrint,
-    canInvoice: isSalesMarketing,
-    canDeliveryOrder: isDriver,
-  }
-}
+import {
+  getOrderPermissions,
+  isDriverStaff,
+} from "@/const/permissions"
+import { normalizeRoleValue } from "@/const/misc"
 
 function formatDateRange(dateRange: DateRange | undefined) {
   if (!dateRange?.from) {
@@ -139,7 +70,7 @@ function formatDateRange(dateRange: DateRange | undefined) {
   }
   
   const formatSingleDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "long",
       year: "numeric",
@@ -153,7 +84,14 @@ function formatDateRange(dateRange: DateRange | undefined) {
   return `${formatSingleDate(dateRange.from)} - ${formatSingleDate(dateRange.to)}`
 }
 
-const getGoogleMapsUrl = (latitude: string, longitude: string) => {
+const getGoogleMapsUrl = (
+  latitude?: string | null,
+  longitude?: string | null
+) => {
+  if (!latitude || !longitude) {
+    return null
+  }
+
   const lat = Number(latitude)
   const lng = Number(longitude)
 
@@ -180,7 +118,6 @@ function OrderPageInner() {
   const [userPosition, setUserPosition] = React.useState<string | null>(null)
   const [userDepartment, setUserDepartment] = React.useState<string | null>(null)
   const [currentStaffId, setCurrentStaffId] = React.useState<number | null>(null)
-  const [currentUserId, setCurrentUserId] = React.useState<number | null>(null)
   const [currentStaffDocumentId, setCurrentStaffDocumentId] = React.useState<string | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false)
@@ -198,7 +135,6 @@ function OrderPageInner() {
     const loadCurrentUser = async () => {
       const user = await getCurrentUser()
       if (isMounted) {
-        setCurrentUserId(user?.id ?? null)
         setCurrentStaffId(user?.staff?.id ?? null)
         setCurrentStaffDocumentId(user?.staff?.documentId ?? null)
         setUserPosition(normalizeRoleValue(user?.staff?.position) || null)
@@ -248,42 +184,31 @@ function OrderPageInner() {
   }, [documentIdParam, orders])
 
   const permissions = React.useMemo(
-    () => deriveOrderPermissions(userPosition, userDepartment),
+    () => getOrderPermissions(userPosition, userDepartment),
     [userPosition, userDepartment]
   )
 
   const visibleOrders = React.useMemo(() => {
-    const isSalesMarketing = userPosition === "sales" && userDepartment === "marketing"
-    const isDriver = userPosition === "driver" && userDepartment === "delivery"
-    if (!isSalesMarketing && !isDriver) {
+    const isDriver = isDriverStaff(userPosition, userDepartment)
+    if (!isDriver) {
       return orders
     }
 
     if (!currentStaffId) {
       if (currentStaffDocumentId) {
-        return orders.filter((order) => order.staff_document_id === currentStaffDocumentId)
+        return orders.filter((order) => order.staff_driver_document_id === currentStaffDocumentId)
       }
       return []
-    }
-
-    if (isSalesMarketing) {
-      return orders.filter((order) => {
-        if (order.staff_id === currentStaffId) return true
-        if (currentStaffDocumentId && order.staff_document_id === currentStaffDocumentId) return true
-        if (currentUserId && order.created_by_id === currentUserId) return true
-        return false
-      })
     }
 
     return orders.filter((order) => {
       if (currentStaffId && order.staff_driver_staff_id === currentStaffId) return true
       if (currentStaffDocumentId && order.staff_driver_document_id === currentStaffDocumentId) return true
-      // fallback: some data stored on staff_id instead of staff_driver_id
       if (currentStaffId && order.staff_id === currentStaffId) return true
       if (currentStaffDocumentId && order.staff_document_id === currentStaffDocumentId) return true
       return false
     })
-  }, [orders, userPosition, userDepartment, currentStaffId, currentStaffDocumentId, currentUserId])
+  }, [orders, userPosition, userDepartment, currentStaffId, currentStaffDocumentId])
 
   const dateFilteredVisibleOrders = React.useMemo(() => {
     if (!dateRange?.from) return visibleOrders
@@ -478,17 +403,17 @@ function OrderPageInner() {
     if (isGeneratingInvoice) return
 
     if (selectedOrders.length === 0) {
-      toast.error("Pilih data pesanan yang akan dibuat invoice")
+      toast.error("Pilih data pesanan yang akan dibuat tagihan")
       return
     }
 
     setIsGeneratingInvoice(true)
     try {
       await generateInvoiceOrderPdf(selectedOrders)
-      toast.success("Invoice PDF berhasil dibuat")
+      toast.success("Tagihan PDF berhasil dibuat")
       setSelectedOrderKeys(new Set())
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Gagal membuat invoice PDF"
+      const message = error instanceof Error ? error.message : "Gagal membuat tagihan PDF"
       toast.error(message)
     } finally {
       setIsGeneratingInvoice(false)
@@ -596,7 +521,14 @@ function OrderPageInner() {
                           mode="range"
                           defaultMonth={dateRange?.from}
                           selected={dateRange}
-                          onSelect={(range) => {
+                            onSelect={(range, selectedDay) => {
+                            const wasRangeComplete = Boolean(dateRange?.from && dateRange?.to)
+
+                            if (wasRangeComplete) {
+                              setDateRange({ from: selectedDay, to: undefined })
+                              return
+                            }
+
                             setDateRange(range)
                             if (range?.from && range?.to) {
                               setOpen(false)
@@ -604,7 +536,7 @@ function OrderPageInner() {
                           }}
                           numberOfMonths={2}
                         />
-                    </PopoverContent>
+                                            </PopoverContent>
                   </Popover>
                 </div>
               </div>
@@ -654,7 +586,7 @@ function OrderPageInner() {
                   onClick={handleGenerateInvoice}
                   disabled={isGeneratingInvoice}
                 >
-                  {isGeneratingInvoice ? "Membuat..." : "Invoice"}
+                  {isGeneratingInvoice ? "Membuat..." : "Tagihan"}
                 </Button>
               )}
               {permissions.canDeliveryOrder && (
@@ -742,7 +674,8 @@ function OrderPageInner() {
                       onClick={handleEditOrder}
                       disabled={!selectedOrder}
                     >
-                      Edit
+                      <Edit className="mr-2 h-4 w-4" />
+                      Ubah
                     </Button>
                   )}
                   {permissions.canPrint && (
@@ -799,9 +732,62 @@ function OrderPageInner() {
                       }
                     />
                     <DetailRow label="Tanggal Order" value={selectedOrder.order_date} />
-                    <DetailRow label="Status Pengiriman" value={selectedOrder.delivery_status} />
+                    <DetailRow label="Status Pengiriman" value={getOrderStatusLabel(selectedOrder)} />
                     <DetailRow label="Jam Sampai" value={selectedOrder.delivery_time} />
                     <DetailRow label="Keterangan" value={selectedOrder.note} />
+                    {(() => {
+                      const extendedOrder = selectedOrder as OrderWithExtras
+                      const latestInvoice = getLatestInvoice(extendedOrder)
+                      return (
+                        <>
+                          <DetailRow
+                            label="Bukti Terima"
+                            value={
+                              extendedOrder.image_receive ? (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="text-blue-600 underline underline-offset-2 hover:text-blue-800"
+                                    >
+                                      Lihat Bukti
+                                    </button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Bukti Terima Pesanan</DialogTitle>
+                                      <DialogDescription>{extendedOrder.order_no}</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="relative mx-auto h-[400px] w-full max-w-md overflow-hidden rounded-md">
+                                      <Image
+                                        src={extendedOrder.image_receive}
+                                        alt={`Bukti terima pesanan ${extendedOrder.order_no}`}
+                                        fill
+                                        className="object-contain"
+                                      />
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              ) : (
+                                "-"
+                              )
+                            }
+                          />
+                          <DetailRow
+                            label="Status Pesanan"
+                            value={getOrderStatusLabel(extendedOrder)}
+                          />
+                          {/* <DetailRow
+                            label="No. Invoice"
+                            value={latestInvoice?.invoice_no ?? "-"}
+                          /> */}
+                          <DetailRow
+                            label="Status Pembayaran"
+                            value={renderPaymentStatusBadge(latestInvoice?.payment_status)}
+                          />
+                        </>
+                      )
+                    })()}
                     {selectedMenuValues && (
                       (Object.keys(orderMenuFieldLabels) as OrderMenuField[])
                         .filter(canShowMenuField)
@@ -838,4 +824,4 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
       <div className="text-base font-normal">{value}</div>
     </div>
   )
-}
+}                                                                                       

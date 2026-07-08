@@ -306,7 +306,7 @@ export default function MapCoordinatePicker({
   return (
     <div className={className}>
       <div className="grid w-full items-center gap-1.5">
-        <Label htmlFor="koordinat">Koordinat*</Label>
+        <Label htmlFor="koordinat">Koordinat <span className="text-red-500">*</span></Label>
         <div className="flex gap-2">
           <Input
             id="koordinat"

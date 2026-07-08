@@ -1,6 +1,7 @@
 "use client"
 import { Label } from '@/components/ui/label'
-import React, { useState } from 'react'
+import React, { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
@@ -52,10 +53,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { deleteStaffWithUser } from '@/features/admin/manage-staff';
+import { getDepartmentLabel, getPositionLabel } from '@/const/permissions';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 
-export default function page() {  
+export default function page() {
+  return (
+    <Suspense fallback={null}>
+      <StaffListPage />
+    </Suspense>
+  )
+}
+
+function StaffListPage() {
+  const searchParams = useSearchParams()
+  // Cache-busting marker set by the add/edit form after a successful save.
+  // Using this as an effect dependency guarantees a refetch happens even if
+  // Next.js reuses a cached instance of this client component on navigation.
+  const refreshedAt = searchParams.get('refreshedAt')
+
   const [staffs, setStaffs] = useState<Staff[]>([])
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
@@ -65,22 +81,31 @@ export default function page() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [searchDepartment, setSearchDepartment] = useState("")
   const [searchPosition, setSearchPosition] = useState("")
+
+  const loadStaffs = React.useCallback(async () => {
+    const data = await fetchStaffs()
+    setStaffs(data)
+  }, [])
+
   React.useEffect(() => {
     let isMounted = true
 
-    const loadStaffs = async () => {
+    const run = async () => {
       const data = await fetchStaffs()
       if (isMounted) {
         setStaffs(data)
       }
     }
 
-    loadStaffs()
+    run()
 
     return () => {
       isMounted = false
     }
-  }, [])
+    // refreshedAt sengaja jadi dependency: berubah setiap kali form add/edit
+    // sukses menyimpan, sehingga daftar staf otomatis di-refetch tanpa perlu
+    // reload manual.
+  }, [refreshedAt])
 
   const getStaffKey = (staff: Staff, index: number) => {
     if (staff.documentId) return staff.documentId
@@ -183,7 +208,7 @@ export default function page() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-72 p-2" align="start">
-                    <DropdownMenuLabel>Pagination</DropdownMenuLabel>
+                    <DropdownMenuLabel>Paginasi</DropdownMenuLabel>
                     {[10, 25, 50, 100].map((size) => (
                       <DropdownMenuCheckboxItem
                         key={size}
@@ -224,12 +249,14 @@ export default function page() {
                   </DropdownMenuContent>
                 </DropdownMenu>
             </div>
-            <Table className='border mt-6 mb-8'>
+            <div className="rounded-lg border border-gray-200 overflow-hidden mt-6 mb-8">
+              <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>No. Hp</TableHead>
-                  <TableHead>Bagian</TableHead>
+                  <TableHead>Nama Akun Pengguna</TableHead>
+                  <TableHead>Nama Staf</TableHead>
+                  <TableHead>Nomor Telepon</TableHead>
+                  <TableHead>Departemen</TableHead>
                   <TableHead>Posisi</TableHead>
                   <TableHead className='text-center'>Aksi</TableHead>
                 </TableRow>
@@ -237,7 +264,7 @@ export default function page() {
               <TableBody>
                   {pagedStaffs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-sm text-gray-500">
+                      <TableCell colSpan={6} className="text-center text-sm text-gray-500">
                         Belum ada data staf
                       </TableCell>
                     </TableRow>
@@ -255,11 +282,12 @@ export default function page() {
                               <div className="h-10 w-10 flex-shrink-0 bg-gray-200 rounded-full flex items-center justify-center">
                                 <UserIcon className="h-6 w-6 text-gray-500" />
                               </div>
-                            <span>{staff.name}</span>
+                            <span>{staff.user_id}</span>
                           </TableCell>
+                          <TableCell>{staff.name}</TableCell>
                           <TableCell>{staff.phone_no}</TableCell>
-                          <TableCell>{staff.department}</TableCell>
-                          <TableCell>{staff.position}</TableCell>
+                          <TableCell>{getDepartmentLabel(staff.department)}</TableCell>
+                          <TableCell>{getPositionLabel(staff.position)}</TableCell>
                           <TableCell>
                             <div className="flex gap-2 justify-center">
                               {staff.documentId && (
@@ -306,6 +334,7 @@ export default function page() {
                   )}
               </TableBody>
             </Table>
+            </div>
 
           <div className='flex justify-between mb-12'>
             <div className='flex justify-start'>
@@ -377,12 +406,13 @@ export default function page() {
               {selectedStaff && (
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <DetailRow label="Nama" value={selectedStaff.name} />
-                    <DetailRow label="Departemen" value={selectedStaff.department} />
-                    <DetailRow label="Posisi" value={selectedStaff.position} />
-                    {/* <DetailRow label="No. KTP" value={selectedStaff.ktp_no} /> */}
-                    <DetailRow label="User" value={selectedStaff.user_id} />
-                    <DetailRow label="No. HP" value={selectedStaff.phone_no} />
+                  <DetailRow label="Nama Akun Pengguna" value={selectedStaff.user_id} />
+                  <DetailRow label="Nama Staf" value={selectedStaff.name} />
+                  <DetailRow label="Email" value={selectedStaff.email || "-"} />
+                  <DetailRow label="Nomor Telepon" value={selectedStaff.phone_no || "-"} />
+                  <DetailRow label="Departemen" value={getDepartmentLabel(selectedStaff.department)} />
+                  <DetailRow label="Posisi" value={getPositionLabel(selectedStaff.position)} />
+                  <DetailRow label="Nomor KTP" value={selectedStaff.ktp_no || "-"} />
                   </div>
                 </div>
               )}

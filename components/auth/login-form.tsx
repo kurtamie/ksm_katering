@@ -34,19 +34,19 @@ export function LoginForm({
       </div>
       <div className="grid gap-6">
         <div className="grid gap-2">
-          <Label htmlFor="email">Nama Pengguna/Nomor Telepon</Label>
+          <Label htmlFor="email">Nama Akun Pengguna</Label>
           <Input
             id="identifier"
             name="identifier"
             type="text"
-            placeholder="Masukkan Nama Pengguna/Nomor Telepon"
+            placeholder="Masukkan Nama Akun Pengguna"
             defaultValue={formState?.username || ""}
             />             
              <ZodErrors error={formState?.zodErrors?.identifier} />
         </div>
         <div className="grid gap-2">
           <div className="flex items-center">
-            <Label htmlFor="password">Kata sandi</Label>
+            <Label htmlFor="password">Kata Sandi</Label>
           </div>
           <div className="relative">
             <Input 
@@ -61,7 +61,7 @@ export function LoginForm({
               className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground cursor-pointer"
               onClick={() => setShowPassword(!showPassword)}
             >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
           </div>
           <ZodErrors error={formState?.zodErrors?.password} />

@@ -30,6 +30,29 @@ const apiBaseUrl = getStrapiURL()
 
 export async function createCustomer(payload: CustomerPayload): Promise<CustomerResult> {
   try {
+    // Validasi nomor HP unik
+    if (payload.phone_no && payload.phone_no.trim() !== '') {
+      const checkUrl = new URL('/api/customers', apiBaseUrl)
+      checkUrl.searchParams.set('filters[phone_no][$eq]', payload.phone_no.trim())
+      checkUrl.searchParams.set('pagination[pageSize]', '1')
+      
+      const checkResponse = await fetch(checkUrl, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      
+      if (checkResponse.ok) {
+        const checkResult = await checkResponse.json().catch(() => ({}))
+        const items = Array.isArray(checkResult?.data) ? checkResult.data : Array.isArray(checkResult) ? checkResult : []
+        if (items.length > 0) {
+          return {
+            success: false,
+            error: 'Nomor HP pelanggan sudah terdaftar',
+          }
+        }
+      }
+    }
+
     const url = new URL('/api/customers', apiBaseUrl)
     const data: Record<string, unknown> = { ...payload }
 

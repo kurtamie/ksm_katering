@@ -35,7 +35,7 @@ export default function page() {
     const requiredMap: Array<[keyof MenuFormValues, string]> = [
       ['packageName', 'Nama Paket'],
       ['price', 'Harga'],
-      ['product', 'Produk'],
+      ['product', 'Layanan'],
     ]
 
     const missingFields = requiredMap
@@ -43,7 +43,7 @@ export default function page() {
       .map(([, label]) => label)
 
     if (missingFields.length > 0) {
-      toast.error(`Lengkapi field: ${missingFields.join(', ')}`)
+      toast.error(`Lengkapi data: ${missingFields.join(', ')}`)
       return
     }
 

@@ -2,7 +2,6 @@
 import Link from 'next/link';
 import React, { Fragment, useState } from 'react';
 import Image from 'next/image';
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -54,10 +53,9 @@ export default function Header() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div className="w-full mx-auto max-w-7xl px-4 gap-6 py-3 flex items-center justify-between">
-        {/* Desktop: SidebarTrigger + Text */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 gap-6 py-3 flex items-center justify-between">
+        {/* Desktop: Text */}
         <div className="hidden md:flex gap-2 items-start justify-items-start">
-          <SidebarTrigger />
           <Link
             href="/dashboard"
             className="flex items-center gap-3 hover:opacity-90 transition-opacity"
@@ -66,9 +64,8 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Mobile: SidebarTrigger + Logo + Spacer */}
+        {/* Mobile: Logo (centered) */}
         <div className="flex md:hidden w-full items-center">
-          <SidebarTrigger className="text-white" />
           <div className="flex-1 flex justify-center">
             <Link
               href="/dashboard"
@@ -82,8 +79,6 @@ export default function Header() {
               />
             </Link>
           </div>
-          {/* Spacer untuk menjaga logo tetap center */}
-          <div className="w-10"></div>
         </div>
 
         {/* Desktop: Profile Dropdown */}
@@ -103,17 +98,17 @@ export default function Header() {
                 </div>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent className="my-4 bg-white dark:bg-gray-800 shadow-lg rounded-md">
-                <DropdownMenuRadioItem value="profile" className="gap-3">
+              <DropdownMenuContent align="end" sideOffset={8} className="my-4 min-w-0 w-fit bg-white dark:bg-gray-800 shadow-lg rounded-md">
+                {/* <DropdownMenuRadioItem value="profile" className="gap-3">
                   <Link href="/admin/account" className="flex items-center gap-3">
                     <AiOutlineUser className="text-xl" /> Akun Saya
                   </Link>
-                </DropdownMenuRadioItem>
-
-                <DropdownMenuSeparator className="w-full h-1 bg-gray-200 dark:bg-gray-700" />
-                <DropdownMenuRadioItem value="logout" className="gap-3">
+                </DropdownMenuRadioItem> */}
+{/* 
+                <DropdownMenuSeparator className="w-full h-1 bg-gray-200 dark:bg-gray-700" /> */}
+                <DropdownMenuItem value="logout" className="gap-3">
                   <LogoutButton onClick={() => setShowLogoutAlert(true)} />
-                </DropdownMenuRadioItem>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </Fragment>

@@ -38,6 +38,7 @@ import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getCurrentUser } from '@/features/admin/create-order'
+import { getPermissions } from '@/const/permissions'
 
 export default function page() {
   const [menus, setMenus] = React.useState<MenuPackage[]>([])
@@ -54,19 +55,6 @@ export default function page() {
 
   const normalizeRoleValue = (value: string | null | undefined) =>
     value?.toLowerCase() ?? ""
-
-  const canManageMenu = (position: string | null, department: string | null) => {
-    const normalizedPosition = normalizeRoleValue(position)
-    const normalizedDepartment = normalizeRoleValue(department)
-
-    const isManager =
-      normalizedPosition === "manager" && normalizedDepartment === "manager"
-    const isAdminOperational =
-      normalizedPosition === "admin_operational" &&
-      normalizedDepartment === "operational"
-
-    return isManager || isAdminOperational
-  }
 
   React.useEffect(() => {
     let isMounted = true
@@ -92,10 +80,10 @@ export default function page() {
       const user = await getCurrentUser()
       if (!isMounted) return
 
-      const allowed = canManageMenu(
+      const allowed = getPermissions(
         user?.staff?.position ?? null,
         user?.staff?.department ?? null
-      )
+      ).canManageMenu
       setCanManage(allowed)
     }
 
@@ -199,14 +187,14 @@ export default function page() {
                   </Select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Produk</span>
+                  <span className="text-sm text-gray-600">Layanan</span>
                   <Select value={productFilter} onValueChange={(value) => setProductFilter(value)}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Semua" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>Filter Produk</SelectLabel>
+                        <SelectLabel>Filter Layanan</SelectLabel>
                         <SelectItem value="all">Semua</SelectItem>
                         {productOptions.map((product) => (
                           <SelectItem key={product} value={product}>
@@ -234,7 +222,7 @@ export default function page() {
                 <TableHead className='text-center'>Nama Paket</TableHead>
                 <TableHead className='text-center'>Jenis Menu</TableHead>
                 <TableHead className='text-center'>Harga</TableHead>
-                <TableHead className='text-center'>Produk</TableHead>
+                <TableHead className='text-center'>Layanan</TableHead>
                 {canManage && <TableHead className='text-center'>Aksi</TableHead>}
               </TableRow>
             </TableHeader>
@@ -266,7 +254,7 @@ export default function page() {
                               disabled={!identifier}
                             >
                               <Link href={identifier ? `/admin/menu/${identifier}/edit` : "#"}>
-                                <Label>Edit</Label>
+                                <Label>Ubah</Label>
                               </Link>
                             </Button>
                             <AlertDialog>

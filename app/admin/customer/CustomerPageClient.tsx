@@ -20,8 +20,10 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
-import { Trash2, X } from 'lucide-react'
+import { Edit, Trash2, X } from 'lucide-react'
 import { fetchCustomers, type Customer } from '@/features/admin/get-customer'
+import { getCurrentUser } from '@/features/admin/create-order'
+import { getPermissions } from '@/const/permissions'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
@@ -37,12 +39,29 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+// Harus tetap sinkron dengan opsi <SelectItem value="..."> di form
+// tambah/edit pelanggan (mis. customer-form.tsx / [documentId]/edit/page.tsx).
+// customer.gender yang tersimpan adalah kode (value), bukan label yang
+// ditampilkan ke user, jadi perlu dipetakan dulu sebelum ditampilkan di sini.
+const GENDER_LABELS: Record<string, string> = {
+  kak: "Kak",
+  bang: "Bang",
+  bu: "Bu",
+  bp: "Pak",
+}
+
+const getGenderLabel = (value: string) => {
+  if (!value || value === "-") return "-"
+  return GENDER_LABELS[value.toLowerCase()] ?? value
+}
+
 export default function CustomerPageClient() {
   const searchParams = useSearchParams()
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(null)
   const [customers, setCustomers] = React.useState<Customer[]>([])
   const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const [canManage, setCanManage] = React.useState(false)
   const documentIdParam = searchParams.get("documentId") ?? searchParams.get("customerId") ?? searchParams.get("id")
   const getDisplayName = (customer: Customer) => {
     if (customer.name !== "-") return customer.name
@@ -57,6 +76,25 @@ export default function CustomerPageClient() {
     if (digits.startsWith('8')) return `62${digits}`
     return digits
   }
+
+  React.useEffect(() => {
+    let isMounted = true
+
+    const loadCurrentUser = async () => {
+      const user = await getCurrentUser()
+      if (!isMounted) return
+      setCanManage(
+        getPermissions(user?.staff?.position ?? null, user?.staff?.department ?? null)
+          .canManageCustomers
+      )
+    }
+
+    loadCurrentUser()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   React.useEffect(() => {
     let isMounted = true
@@ -108,7 +146,7 @@ export default function CustomerPageClient() {
   }
 
   const editTarget = selectedCustomer?.documentId ?? (selectedCustomer?.id ? String(selectedCustomer.id) : "")
-  const canEdit = Boolean(editTarget)
+  const hasEditTarget = Boolean(editTarget)
 
   return (
     <div className='bg-white w-full mx-auto'>
@@ -127,9 +165,11 @@ export default function CustomerPageClient() {
               </Button> */}
             </div>
             <div className='ml-0 flex gap-2'>
-                <Link href={"/admin/customer/add"}>
-                    <Button className='cursor-pointer'><FaPlus />Tambah Pelanggan</Button>
-                </Link>
+                {canManage && (
+                  <Link href={"/admin/customer/add"}>
+                      <Button className='cursor-pointer'><FaPlus />Tambah Pelanggan</Button>
+                  </Link>
+                )}
             </div>
         </div>
         <div className="mb-6 p-4">
@@ -138,8 +178,10 @@ export default function CustomerPageClient() {
               <TableRow>
                 <TableHead>Sapaan Pelanggan</TableHead>
                 <TableHead>Nama</TableHead>
+                <TableHead>Jenis Pelanggan</TableHead>
                 <TableHead></TableHead>
-                <TableHead className='text-center'>Nama Sales</TableHead>
+                {/* <TableHead className='text-center'>Nama Sales</TableHead> */}
+                {canManage && <TableHead className='text-center'>Aksi</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -153,15 +195,17 @@ export default function CustomerPageClient() {
                 customers.map((customer) => {
                   const phoneLink = normalizePhoneForLink(customer.phone_no)
                   const hasPhone = phoneLink.length > 0
-
+                  const editTargetRow = customer.documentId ?? (customer.id ? String(customer.id) : "")
+                  const hasEditTargetRow = Boolean(editTargetRow)
                   return (
                     <TableRow
                       key={customer.documentId ?? customer.id ?? customer.phone_no}
                       className="cursor-pointer"
                       onClick={() => handleCustomerClick(customer)}
                     >
-                      <TableCell>{customer.gender}</TableCell>
+                      <TableCell>{getGenderLabel(customer.gender)}</TableCell>
                       <TableCell>{getDisplayName(customer)}</TableCell>
+                      <TableCell>{customer.company}</TableCell>
                       <TableCell className='flex items-center gap-4'>
                         {hasPhone ? (
                           <Button
@@ -185,7 +229,49 @@ export default function CustomerPageClient() {
                           </Button>
                         )}
                       </TableCell>
-                      <TableCell className='text-center'>{customer.sales_name}</TableCell>
+                      {/* <TableCell className='text-center'>{customer.sales_name}</TableCell> */}
+                                {canManage && (
+            <TableCell>
+              <div className="flex gap-2 justify-center">
+                {hasEditTargetRow && (
+                  <Link href={`/admin/customer/${editTargetRow}/edit`} onClick={(event) => event.stopPropagation()}>
+                    <Button
+                      className='bg-white border border-red-700 text-red-700 hover:bg-red-700 hover:text-white cursor-pointer'
+                      size="icon"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      className='cursor-pointer'
+                      size="icon"
+                      disabled={!hasEditTargetRow}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent onClick={(event) => event.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Hapus pelanggan?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {getDisplayName(customer)} akan dihapus. Tindakan ini tidak bisa dibatalkan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                      <AlertDialogAction>
+                        Ya, Hapus
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </TableCell>
+          )}
                     </TableRow>
                   )
                 })
@@ -207,76 +293,28 @@ export default function CustomerPageClient() {
                 <DrawerTitle className="text-xl font-bold">
                   {selectedCustomer ? getDisplayName(selectedCustomer) : "Detail Pelanggan"}
                 </DrawerTitle>
-                <div className="flex flex-wrap items-center gap-2">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="cursor-pointer h-9 whitespace-nowrap"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Hapus
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Hapus pelanggan?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Pelanggan ini akan dihapus
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction>
-                          Ya Hapus
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                  {canEdit ? (
-                    <Link href={`/admin/customer/${editTarget}/edit`}>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="cursor-pointer h-9 whitespace-nowrap"
-                      >
-                        Edit
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="cursor-pointer h-9 whitespace-nowrap"
-                      disabled
-                    >
-                      Edit
-                    </Button>
-                  )}
                   <DrawerClose asChild>
-                    <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail pelanggan">
-                      <X className="h-5 w-5" />
-                    </Button>
-                  </DrawerClose>
-                </div>
-              </div>
-            </DrawerHeader>
+                        <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Tutup detail pelanggan">
+                          <X className="h-5 w-5" />
+                        </Button>
+                      </DrawerClose>
+                    </div>
+                  </DrawerHeader>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
               {selectedCustomer && (
                 <div className="space-y-6">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <DetailRow label="Nama Sales" value={selectedCustomer.sales_name} />
-                    <DetailRow label="Sapaan Pelanggan" value={selectedCustomer.gender} />
+                    {/* <DetailRow label="Nama Sales" value={selectedCustomer.sales_name} /> */}
+                    <DetailRow label="Sapaan Pelanggan" value={getGenderLabel(selectedCustomer.gender)} />
                     <DetailRow label="Nama" value={selectedCustomer.name} />
                     <DetailRow label="Nama Instansi/Perusahaan" value={selectedCustomer.company_name} />
-                    <DetailRow label="No. HP" value={selectedCustomer.phone_no} />
+                    <DetailRow label="Nomor Telepon" value={selectedCustomer.phone_no} />
                     <DetailRow label="Instansi" value={selectedCustomer.company} />
                     <DetailRow label="Alamat" value={selectedCustomer.address} />
                     <DetailRow label="Lintang" value={selectedCustomer.latitude} />
                     <DetailRow label="Bujur" value={selectedCustomer.longitude} />
-                    <DetailRow label="User" value={selectedCustomer.user_id} />
+                    {/* <DetailRow label="User" value={selectedCustomer.user_id} /> */}
                   </div>
                 </div>
               )}

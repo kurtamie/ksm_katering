@@ -1,5 +1,6 @@
 import { getStrapiURL } from '@/lib/utils'
 import { getCurrentUser } from '@/features/admin/create-order'
+import { isDriverStaff } from '@/const/permissions'
 
 export type Order = {
   id: number | null
@@ -56,13 +57,16 @@ export type Order = {
   menu_product: string
   latitude: string
   longitude: string
+  step: string
+  image_receive: string | null
+  invoices: {
+    invoice_no: string | null
+    invoice_date: string | null
+    payment_status: string | null
+  }[]
 }
 
 const apiBaseUrl = getStrapiURL()
-const SALES_POSITION = "sales"
-const MARKETING_DEPARTMENT = "marketing"
-const DRIVER_POSITION = "driver"
-const DELIVERY_DEPARTMENT = "delivery"
 
 const withFallback = (value: unknown): string => {
   if (value === null || value === undefined) return "-"
@@ -233,6 +237,25 @@ const normalizeOrder = (item: any): Order => {
     attributes?.staff_driver_documentId
   )
 
+  // Bukti terima (media/upload field di Strapi)
+  const imageReceiveData = getRelationData(attributes.image_receive)
+  const imageReceiveAttrs = getAttributes(imageReceiveData)
+  const imageReceiveUrl =
+    imageReceiveAttrs?.url ??
+    (typeof attributes.image_receive === "string" ? attributes.image_receive : null)
+
+  // Invoice(s) terkait order (relasi manyToMany/oneToMany)
+  const invoicesRaw = attributes.invoices?.data ?? attributes.invoices ?? []
+  const invoicesArray = Array.isArray(invoicesRaw) ? invoicesRaw : []
+  const invoices = invoicesArray.map((inv: any) => {
+    const invAttrs = getAttributes(inv)
+    return {
+      invoice_no: invAttrs?.invoice_no ?? null,
+      invoice_date: invAttrs?.invoice_date ?? null,
+      payment_status: invAttrs?.payment_status ?? null,
+    }
+  })
+
   return {
     id: orderId,
     documentId,
@@ -285,7 +308,8 @@ const normalizeOrder = (item: any): Order => {
     ),
 
     package_name: withFallback(
-      attributes.package_name
+      attributes.package_name ||
+      packageAttrs?.package_name
     ),
     
     product_category: withFallback(
@@ -295,7 +319,8 @@ const normalizeOrder = (item: any): Order => {
     
     product_package: withFallback(
       packageAttrs?.package_name || 
-      packageAttrs?.name
+      packageAttrs?.name ||
+      attributes.package_name
     ),
     
     driver: withFallback(
@@ -389,6 +414,16 @@ const normalizeOrder = (item: any): Order => {
     latitude: withFallback(attributes.latitude),
 
     longitude: withFallback(attributes.longitude),
+
+    step: withFallback(attributes.step),
+
+    image_receive: imageReceiveUrl
+      ? (String(imageReceiveUrl).startsWith("http")
+          ? String(imageReceiveUrl)
+          : `${apiBaseUrl}${imageReceiveUrl}`)
+      : null,
+
+    invoices,
     
     createdAt: withFallback(createdDate),
   }
@@ -412,25 +447,21 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
       (options.department ??
         currentUser?.staff?.department ??
         roleFromCookie.department)?.toLowerCase() ?? null
-    const shouldLimitToStaff =
-      position === SALES_POSITION && department === MARKETING_DEPARTMENT
-    const shouldLimitToDriver =
-      position === DRIVER_POSITION && department === DELIVERY_DEPARTMENT
+    const shouldLimitToDriver = isDriverStaff(position, department)
     let staffId = options.staffId ?? currentUser?.staff?.id ?? null
     let staffDocumentId = currentUser?.staff?.documentId ?? null
 
-    if ((shouldLimitToStaff || shouldLimitToDriver) && currentUser?.id && (!staffId || !staffDocumentId)) {
+    if (shouldLimitToDriver && currentUser?.id && (!staffId || !staffDocumentId)) {
       const staffFromUser = await fetchStaffForUser(currentUser.id)
       staffId = staffId ?? staffFromUser?.id ?? null
       staffDocumentId = staffDocumentId ?? staffFromUser?.documentId ?? null
     }
 
-    if ((shouldLimitToStaff || shouldLimitToDriver) && !staffId && !staffDocumentId) {
+    if (shouldLimitToDriver && !staffId && !staffDocumentId) {
       return []
     }
 
     const fetchOrdersFromApi = async (
-      applyStaffFilter: boolean,
       applyDriverFilter: boolean,
       staffFilterMode: "auto" | "id" | "documentId" = "auto"
     ) => {
@@ -442,16 +473,9 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
       url.searchParams.set('populate[package_id][populate]', '*')
       url.searchParams.set('populate[order_details][populate]', '*')
       url.searchParams.set('populate[order_menus][populate]', '*')
-      const applyStaff = applyStaffFilter && !applyDriverFilter
-      const applyDriver = applyDriverFilter
-      if (applyStaff) {
-        if ((staffFilterMode === "id" || staffFilterMode === "auto") && staffId) {
-          url.searchParams.set('filters[staff_id][id][$eq]', String(staffId))
-        } else if ((staffFilterMode === "documentId" || staffFilterMode === "auto") && staffDocumentId) {
-          url.searchParams.set('filters[staff_id][documentId][$eq]', staffDocumentId)
-        }
-      }
-      if (applyDriver) {
+      url.searchParams.set('populate[invoices][populate]', '*')
+      url.searchParams.set('populate[image_receive]', 'true')
+      if (applyDriverFilter) {
         if (staffId) {
           url.searchParams.set('filters[staff_driver_id][id][$eq]', String(staffId))
         } else if (staffDocumentId) {
@@ -487,34 +511,45 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
 
     let orders: any[] = []
     try {
-      orders = shouldLimitToStaff
-        ? await fetchOrdersFromApi(false, false)
-        : await fetchOrdersFromApi(shouldLimitToStaff, shouldLimitToDriver)
+      orders = await fetchOrdersFromApi(shouldLimitToDriver)
     } catch (error) {
       if (!shouldLimitToDriver) {
         throw error
       }
-      orders = await fetchOrdersFromApi(shouldLimitToStaff, false)
-    }
-
-    if (shouldLimitToStaff && orders.length === 0 && staffDocumentId) {
-      orders = await fetchOrdersFromApi(shouldLimitToStaff, shouldLimitToDriver, "documentId")
+      orders = await fetchOrdersFromApi(false)
     }
 
     if (shouldLimitToDriver && orders.length === 0 && staffDocumentId) {
-      orders = await fetchOrdersFromApi(shouldLimitToStaff, shouldLimitToDriver, "documentId")
+      orders = await fetchOrdersFromApi(true, "documentId")
     }
 
     if (shouldLimitToDriver && orders.length === 0) {
-      orders = await fetchOrdersFromApi(shouldLimitToStaff, false)
+      orders = await fetchOrdersFromApi(false)
     }
 
     // fallback: some orders store driver on staff_id instead of staff_driver_id
-    if (shouldLimitToDriver && orders.length === 0) {
-      try {
-        orders = await fetchOrdersFromApi(true, false)
-      } catch (error) {
-        orders = await fetchOrdersFromApi(true, false, "documentId")
+    if (shouldLimitToDriver && orders.length === 0 && staffId) {
+      const url = new URL('/api/orders', apiBaseUrl)
+      url.searchParams.set('populate[customer_id][populate]', '*')
+      url.searchParams.set('populate[staff_id][populate]', '*')
+      url.searchParams.set('populate[staff_driver_id][populate]', '*')
+      url.searchParams.set('populate[package_id][populate]', '*')
+      url.searchParams.set('populate[order_details][populate]', '*')
+      url.searchParams.set('populate[order_menus][populate]', '*')
+      url.searchParams.set('populate[invoices][populate]', '*')
+      url.searchParams.set('populate[image_receive]', 'true')
+      url.searchParams.set('filters[staff_id][id][$eq]', String(staffId))
+      const fallbackResponse = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (fallbackResponse.ok) {
+        const fallbackResult = await fallbackResponse.json()
+        if (fallbackResult?.data && Array.isArray(fallbackResult.data)) {
+          orders = fallbackResult.data
+        } else if (Array.isArray(fallbackResult)) {
+          orders = fallbackResult
+        }
       }
     }
     
@@ -522,18 +557,12 @@ export async function fetchOrders(options: FetchOrdersOptions = {}): Promise<Ord
     
     let normalized = orders.map(normalizeOrder)
 
-    if (shouldLimitToStaff) {
-      normalized = normalized.filter((order: any) => {
-        if (staffId && order.staff_id === staffId) return true
-        if (staffDocumentId && order.staff_document_id === staffDocumentId) return true
-        if (currentUser?.id && order.created_by_id === currentUser.id) return true
-        return false
-      })
-    }
     if (shouldLimitToDriver) {
       normalized = normalized.filter((order: any) => {
         if (staffId && order.staff_driver_staff_id === staffId) return true
         if (staffDocumentId && order.staff_driver_document_id === staffDocumentId) return true
+        if (staffId && order.staff_id === staffId) return true
+        if (staffDocumentId && order.staff_document_id === staffDocumentId) return true
         return false
       })
     }
@@ -560,6 +589,8 @@ export async function fetchOrderByDocumentId(documentId: string): Promise<Order 
   url.searchParams.set('populate[package_id][populate]', '*')
   url.searchParams.set('populate[order_details][populate]', '*')
   url.searchParams.set('populate[order_menus][populate]', '*')
+  url.searchParams.set('populate[invoices][populate]', '*')
+  url.searchParams.set('populate[image_receive]', 'true')
 
   const response = await fetch(url, {
     method: 'GET',

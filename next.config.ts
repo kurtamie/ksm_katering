@@ -9,6 +9,25 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "big-surprise-ab176c9ad8.media.strapiapp.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.media.strapiapp.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "big-surprise-ab176c9ad8.strapiapp.com",
+        pathname: "/**",
+      },
+    ],
+  },
   // Silence Next 16 Turbopack/webpack config mismatch.
   turbopack: {},
 };

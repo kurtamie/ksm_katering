@@ -15,6 +15,7 @@ import { fetchStaffs, type Staff } from '@/features/admin/get-staff'
 import { DEFAULT_COORDINATE } from '@/const/default-coordinates'
 import { CustomerFormValues } from '@/types/admin/customer'
 import { CurrentUser } from '@/types/admin/user'
+import { isSalesStaff } from '@/const/permissions'
 
 export default function page() {
   const router = useRouter()
@@ -42,10 +43,7 @@ export default function page() {
 
   const normalizedPosition = normalizeRoleValue(currentUser?.staff?.position)
   const normalizedDepartment = normalizeRoleValue(currentUser?.staff?.department)
-  const isAdminOperational =
-    normalizedPosition === "admin_operational" && normalizedDepartment === "operational"
-  const isSalesMarketing =
-    normalizedPosition === "sales" && normalizedDepartment === "marketing"
+  const isSales = isSalesStaff(currentUser?.staff?.position, currentUser?.staff?.department)
 
   useEffect(() => {
     let isMounted = true
@@ -64,11 +62,6 @@ export default function page() {
   }, [])
 
   useEffect(() => {
-    if (!isAdminOperational && !isSalesMarketing) {
-      setSalesStaffOptions([])
-      return
-    }
-
     let isMounted = true
 
     const loadSalesStaffs = async () => {
@@ -78,7 +71,7 @@ export default function page() {
         const salesStaffs = staffs.filter((staff) => {
           const position = normalizeRoleValue(staff.position)
           const department = normalizeRoleValue(staff.department)
-          return position === "sales" && department === "marketing" && staff.id !== null
+          return position === "sales" && department === "operational" && staff.id !== null
         })
         if (isMounted) {
           setSalesStaffOptions(salesStaffs)
@@ -95,7 +88,7 @@ export default function page() {
     return () => {
       isMounted = false
     }
-  }, [isAdminOperational, isSalesMarketing])
+  }, [])
 
   useEffect(() => {
     if (!documentId) {
@@ -139,24 +132,17 @@ export default function page() {
   }, [documentId])
 
   useEffect(() => {
-    if (!isAdminOperational) return
-    if (!formValues.staffId) return
+    if (!isSales || !currentUser?.staff?.id) return
 
-    const selectedId = Number(formValues.staffId)
-    const selectedName = salesStaffOptions.find((staff) => staff.id === selectedId)?.name ?? ''
-    if (!selectedName) return
+    const staffIdValue = String(currentUser.staff.id)
+    const staffName = salesStaffOptions.find((staff) => staff.id === currentUser.staff?.id)?.name ?? ''
 
-    setFormValues((prev) => (prev.salesName === selectedName ? prev : { ...prev, salesName: selectedName }))
-  }, [formValues.staffId, isAdminOperational, salesStaffOptions])
-
-  useEffect(() => {
-    if (!isSalesMarketing) return
-    if (formValues.salesName.trim()) return
-    const staffName = salesStaffOptions.find((staff) => staff.id === currentUser?.staff?.id)?.name ?? ''
-    if (!staffName) return
-
-    setFormValues((prev) => ({ ...prev, salesName: staffName }))
-  }, [currentUser?.staff?.id, formValues.salesName, isSalesMarketing, salesStaffOptions])
+    setFormValues((prev) => ({
+      ...prev,
+      staffId: staffIdValue,
+      salesName: staffName || prev.salesName,
+    }))
+  }, [currentUser?.staff?.id, isSales, salesStaffOptions])
 
   const updateField = <K extends keyof CustomerFormValues>(field: K, value: CustomerFormValues[K]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }))
@@ -184,7 +170,6 @@ export default function page() {
     }
 
     const requiredMap: Array<[keyof CustomerFormValues, string]> = [
-      ['salesName', 'Nama Sales'],
       ['gender', 'Sapaan Pelanggan'],
       ['name', 'Nama'],
       ['companyName', 'Nama Instansi/Perusahaan'],
@@ -192,26 +177,19 @@ export default function page() {
       ['company', 'Instansi'],
       ['address', 'Alamat'],
     ]
-    if (isAdminOperational) {
-      requiredMap[0] = ['staffId', 'Nama Sales']
-    }
 
     const missingFields = requiredMap
       .filter(([key]) => !formValues[key].trim())
       .map(([, label]) => label)
 
     if (missingFields.length > 0) {
-      toast.error(`Lengkapi field: ${missingFields.join(', ')}`)
+      toast.error(`Lengkapi data: ${missingFields.join(', ')}`)
       return
     }
 
     const staffIdValue = formValues.staffId.trim()
     const staffIdNumber = staffIdValue ? Number(staffIdValue) : null
-    if (isAdminOperational && (!staffIdNumber || Number.isNaN(staffIdNumber))) {
-      toast.error('Nama sales tidak valid')
-      return
-    }
-    if (isSalesMarketing && staffIdValue && Number.isNaN(staffIdNumber)) {
+    if (!staffIdNumber || Number.isNaN(staffIdNumber)) {
       toast.error('Staf sales tidak valid')
       return
     }
@@ -255,9 +233,9 @@ export default function page() {
         <div className='container w-full md:w-full mx-auto px-4 py-2'>
             <div className='bg-white mt-2 flex flex-col px-4 md:px-8 rounded-lg'>
                 <div className='w-full mb-6 md:mb-8 py-4 md:py-6'>
-                    {isAdminOperational ? (
+                    {/* Field Pilih Sales - hidden sementara */}
+                    {/* {isAdminOperational ? (
                         <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                            <Label htmlFor="staff_id">Nama Sales</Label>
                             <Select
                                 value={formValues.staffId}
                                 onValueChange={(value) => updateField('staffId', value)}
@@ -296,7 +274,7 @@ export default function page() {
                                 disabled={isSalesMarketing && formValues.salesName.trim() !== ""}
                             />
                         </div>
-                    )}
+                    )} */}
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
                         <Label htmlFor="gender">Sapaan Pelanggan</Label>
                         <Select value={formValues.gender} onValueChange={(value) => updateField('gender', value)}>
@@ -309,13 +287,13 @@ export default function page() {
                                     <SelectItem value="kak">Kak</SelectItem>
                                     <SelectItem value="bang">Bang</SelectItem>
                                     <SelectItem value="bu">Bu</SelectItem>
-                                    <SelectItem value="bp">Bp</SelectItem>
+                                    <SelectItem value="bp">Pak</SelectItem>
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="name">Nama</Label>
+                        <Label htmlFor="name">Nama <span className="text-red-500">*</span></Label>
                         <Input
                             type="text"
                             name="name"
@@ -327,19 +305,7 @@ export default function page() {
                         />
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="company_name">Nama Instansi/Perusahaan</Label>
-                        <Input
-                            type="text"
-                            name="company_name"
-                            id="company_name"
-                            placeholder="Masukkan nama instansi"
-                            required
-                            value={formValues.companyName}
-                            onChange={(e) => updateField('companyName', e.target.value)}
-                        />
-                    </div>
-                    <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="phone_no">No HP *</Label>
+                        <Label htmlFor="phone_no">Nomor Telepon <span className="text-red-500">*</span></Label>
                         <Input
                             type="text"
                             name="phone_no"
@@ -351,14 +317,14 @@ export default function page() {
                         />
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="company">Instansi</Label>
+                        <Label htmlFor="company">Jenis Pelanggan</Label>
                         <Select value={formValues.company} onValueChange={(value) => updateField('company', value)}>
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Pilih instansi" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
-                                    <SelectLabel>Instansi</SelectLabel>
+                                    <SelectLabel>Jenis Pelanggan</SelectLabel>
                                     <SelectItem value="personal">Personal</SelectItem>
                                     <SelectItem value="bumn">BUMN</SelectItem>
                                     <SelectItem value="swasta">Swasta</SelectItem>
@@ -366,6 +332,18 @@ export default function page() {
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
+                    </div>
+                      <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                        <Label htmlFor="company_name">Nama Instansi/Perusahaan <span className="text-red-500">*</span></Label>
+                        <Input
+                            type="text"
+                            name="company_name"
+                            id="company_name"
+                            placeholder="Masukkan nama instansi"
+                            required
+                            value={formValues.companyName}
+                            onChange={(e) => updateField('companyName', e.target.value)}
+                        />
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
                         <Label htmlFor="address">Alamat</Label>

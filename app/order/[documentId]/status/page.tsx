@@ -4,35 +4,19 @@ import React from "react"
 import { useUser } from "@/components/providers/user-provider"
 import { fetchOrderByDocumentId, type Order } from "@/features/admin/get-order"
 import { updateOrderStep } from "@/features/admin/update-order-step"
-
-const STEP_DISPLAY: Record<string, string> = {
-  packing: "Pesanan Selesai di Packing",
-  send: "Dalam Pengiriman",
-  success: "Pesanan Diterima",
-}
-
-const STEP_SEQUENCE = ["packing", "send", "success"]
+import { getPermissions } from "@/const/permissions"
+import {
+  getNextOrderStep,
+  getNextOrderStepLabel,
+  getOrderStatusLabel,
+  getStoredOrderStep,
+  isOrderPaid,
+} from "@/const/admin/order"
 
 type PageProps = {
   params: Promise<{
     documentId: string
   }>
-}
-
-const normalizeStepValue = (value: string) => {
-  if (!value || value === "-") return ""
-  // If value is display text, convert to step key
-  const entry = Object.entries(STEP_DISPLAY).find(([_, display]) => display === value)
-  return entry ? entry[0] : value
-}
-
-const getNextStep = (currentStep: string): string | null => {
-  const normalized = normalizeStepValue(currentStep)
-  const currentIndex = STEP_SEQUENCE.indexOf(normalized)
-  if (currentIndex === -1 || currentIndex === STEP_SEQUENCE.length - 1) {
-    return null
-  }
-  return STEP_SEQUENCE[currentIndex + 1]
 }
 
 export default function Page({ params }: PageProps) {
@@ -62,12 +46,7 @@ export default function Page({ params }: PageProps) {
 
   const hasAccess = React.useMemo(() => {
     if (!user?.position || !user?.department) return false
-    const allowedDepartments = new Set(["operational", "delivery", "developer"])
-    const allowedPositions = new Set(["supervisor", "driver", "developer"])
-    return (
-      allowedDepartments.has(user.department) &&
-      allowedPositions.has(user.position)
-    )
+    return getPermissions(user.position, user.department).orders.canUpdateOrderStatus
   }, [user])
 
   React.useEffect(() => {
@@ -90,15 +69,19 @@ export default function Page({ params }: PageProps) {
   const handleSubmit = async () => {
     if (!order) return
 
-    const currentStep = normalizeStepValue(order.delivery_status)
-    const nextStep = getNextStep(currentStep)
+    if (!isOrderPaid(order)) {
+      setError("Pesanan belum dibayar. Status hanya dapat diperbarui setelah pembayaran lunas.")
+      return
+    }
+
+    const currentStep = getStoredOrderStep(order)
+    const nextStep = getNextOrderStep(order)
 
     if (!nextStep) {
       setError("Pesanan sudah dalam status akhir")
       return
     }
 
-    // Validate image upload for send -> success transition
     if (currentStep === "send" && nextStep === "success" && !selectedImage) {
       setError("Upload foto penerimaan pesanan terlebih dahulu")
       return
@@ -124,9 +107,11 @@ export default function Page({ params }: PageProps) {
     }
   }
 
-  const currentStep = order ? normalizeStepValue(order.delivery_status) : ""
-  const nextStep = currentStep ? getNextStep(currentStep) : null
-  const showImageUpload = currentStep === "send" && nextStep === "success"
+  const storedStep = order ? getStoredOrderStep(order) : ""
+  const nextStep = order ? getNextOrderStep(order) : null
+  const nextStepLabel = order ? getNextOrderStepLabel(order) : null
+  const showImageUpload = storedStep === "send" && nextStep === "success"
+  const isWaitingPayment = order ? !isOrderPaid(order) : false
 
   if (!hasAccess) {
     return (
@@ -135,7 +120,7 @@ export default function Page({ params }: PageProps) {
           <h1 className="text-center text-2xl font-bold">QR Valid</h1>
           <div className="mt-6 text-center text-sm text-gray-600">
             {user
-              ? "anda bukan staff yang terkait di perubahan status order"
+              ? "Anda tidak memiliki izin untuk memperbarui status pesanan ini"
               : "Memuat data pengguna..."}
           </div>
         </div>
@@ -167,17 +152,27 @@ export default function Page({ params }: PageProps) {
               <div className="p-6">
                 <div className="grid gap-6 sm:grid-cols-2">
                   <FormField label="ID PESANAN" value={order.order_no} />
-                  <FormField label="NO SURAT JALAN" value={order.travel_letter_no.split('ORD')[1] || order.travel_letter_no} />
+                  {/* <FormField label="NO SURAT JALAN" value={order.travel_letter_no.split('ORD')[1] || order.travel_letter_no} /> */}
                   <FormField label="PEMESAN" value={order.customer} />
                   <FormField label="NAMA PENERIMA" value={order.customer} />
                 </div>
                 <div className="mt-6">
-                  <FormField label="STATUS SAAT INI" value={STEP_DISPLAY[currentStep] || currentStep} readonly />
+                  <FormField
+                    label="STATUS SAAT INI"
+                    value={getOrderStatusLabel(order)}
+                    readonly
+                  />
                 </div>
               </div>
             </div>
 
-            {nextStep && (
+            {isWaitingPayment && (
+              <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-center text-sm text-yellow-800">
+                Pesanan menunggu pembayaran. Status pengiriman baru dapat diproses setelah pembayaran lunas.
+              </div>
+            )}
+
+            {nextStep && nextStepLabel && (
               <div className="space-y-4">
                 {showImageUpload && (
                   <div className="rounded-lg border border-gray-300 bg-white p-6">
@@ -209,7 +204,7 @@ export default function Page({ params }: PageProps) {
                     onClick={handleSubmit}
                     disabled={saving || (showImageUpload && !selectedImage)}
                   >
-                    {saving ? "Menyimpan..." : STEP_DISPLAY[nextStep]}
+                    {saving ? "Menyimpan..." : nextStepLabel}
                   </button>
                 </div>
 
@@ -220,12 +215,12 @@ export default function Page({ params }: PageProps) {
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span>Aksi ini hanya bisa dilakukan oleh <strong>Admin Operasional.</strong></span>
+                  <span>Aksi ini hanya dapat dilakukan oleh staf Sales atau Kurir.</span>
                 </div>
               </div>
             )}
 
-            {!nextStep && (
+            {!nextStep && !isWaitingPayment && (
               <div className="text-center text-sm text-gray-600">
                 Pesanan sudah dalam status akhir.
               </div>

@@ -15,7 +15,7 @@ export type PackageOption = {
 }
 
 export type OrderFormValues = {
-    orderNo: string
+    orderNo?: string
     staffId: string
   customerId: string
   customerType: string
@@ -70,4 +70,5 @@ export type OrderDishOptions = {
   fruit: string[]
   mineralWater: string[]
   box: string[]
+  pudding: string[]
 }

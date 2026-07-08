@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SubmitButton } from "@/components/custom/submit-button"
 import { ZodErrors } from "@/components/custom/zod-errors"
 import { updateAccountAction, updatePasswordAction, INITIAL_STATE } from "@/features/admin/update-accound"
+import { getDepartmentLabel, getPositionLabel } from "@/const/permissions"
 
 export default function AccountPage() {
   const [accountState, accountAction] = useActionState(updateAccountAction, INITIAL_STATE)
@@ -112,7 +113,7 @@ export default function AccountPage() {
             <form action={accountAction} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
+                  <Label htmlFor="username">Nama Pengguna</Label>
                   <Input
                     id="username"
                     name="username"
@@ -169,12 +170,12 @@ export default function AccountPage() {
                     <ZodErrors error={accountState?.zodErrors?.ktp_no} />
                   </div> */}
                   <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Input id="department" value={values.department} disabled readOnly />
+                    <Label htmlFor="department">Departemen</Label>
+                    <Input id="department" value={getDepartmentLabel(values.department)} disabled readOnly />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Input id="position" value={values.position} disabled readOnly />
+                    <Label htmlFor="position">Posisi</Label>
+                    <Input id="position" value={getPositionLabel(values.position)} disabled readOnly />
                   </div>
                 </div>
               )}
@@ -202,18 +203,18 @@ export default function AccountPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Ganti Password</CardTitle>
+            <CardTitle>Ubah Kata Sandi</CardTitle>
           </CardHeader>
           <CardContent>
             <form action={passwordAction} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password Baru</Label>
+                  <Label htmlFor="password">Kata Sandi Baru</Label>
                   <Input id="password" name="password" type="password" />
                   <ZodErrors error={passwordState?.zodErrors?.password} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm_password">Konfirmasi Password</Label>
+                  <Label htmlFor="confirm_password">Konfirmasi Kata Sandi</Label>
                   <Input id="confirm_password" name="confirm_password" type="password" />
                   <ZodErrors error={passwordState?.zodErrors?.confirm_password} />
                 </div>
@@ -231,7 +232,7 @@ export default function AccountPage() {
               )}
 
               <SubmitButton
-                text="Ganti Password"
+                text="Ubah Kata Sandi"
                 loadingText="Menyimpan"
                 className="bg-[#8D0000] text-white hover:bg-red-700"
               />

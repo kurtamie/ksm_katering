@@ -10,6 +10,8 @@ export const dishTypeOptions = [
   { value: "fruit", label: "Buah" },
   { value: "mineral_water", label: "Air Mineral" },
   { value: "box", label: "Kotak" },
+  { value: "snack", label: "Snack" }, 
+  { value: "pudding", label: "Puding" }, 
 ] as const
 
 export type DishTypeValue = (typeof dishTypeOptions)[number]["value"]
@@ -26,6 +28,30 @@ export const getDishTypeLabel = (value: string | null | undefined) => {
   if (!value) return "-"
   const key = value as DishTypeValue
   return dishTypeLabelMap[key] ?? value
+}
+
+export const serviceOptions = [
+  { value: "ricebox", label: "Rice Box" },
+  { value: "prasmanan", label: "Prasmanan" },
+  { value: "prasmanan_wedding", label: "Prasmanan Wedding" },
+  { value: "bento", label: "Bento" },
+  { value: "snackbox", label: "Snack Box" },
+] as const
+
+export type ServiceValue = (typeof serviceOptions)[number]["value"]
+
+export const serviceLabelMap: Record<ServiceValue, string> = serviceOptions.reduce(
+  (acc, item) => {
+    acc[item.value] = item.label
+    return acc
+  },
+  {} as Record<ServiceValue, string>
+)
+
+export const getServiceLabel = (value: string | null | undefined) => {
+  if (!value) return "-"
+  const key = value as ServiceValue
+  return serviceLabelMap[key] ?? value
 }
 
 export const DEFAULT_DISH_OPTIONS: OrderDishOptions = {
@@ -60,4 +86,5 @@ export const DEFAULT_DISH_OPTIONS: OrderDishOptions = {
     "Kotak putih 18x18",
     "Mika bento",
   ],
+  pudding: ["Puding Ceria", "Puding Coklat", "Puding Buah"],
 }

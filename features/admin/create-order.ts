@@ -1,4 +1,5 @@
 import { getStrapiURL } from '@/lib/utils'
+import { isDriverStaff, isSalesStaff } from '@/const/permissions'
 
 type CustomerOption = {
   id: number
@@ -18,7 +19,7 @@ type PackageOption = {
 
 type OrderPayload = {
   orderData: {
-    order_no: string
+    order_no?: string
     travel_letter_no: string
     created_date: string
     customer_id: number
@@ -71,6 +72,8 @@ type OrderResult = {
   success: boolean
   error?: string
   resolvedTravelLetterNo?: string
+  createdOrder?: any
+  orderNo?: string | null
 }
 
 type CurrentUser = {
@@ -189,8 +192,7 @@ const getCurrentUserFromCookie = (): CurrentUser | null => {
       ? parseDocumentId(staffDocumentIdRaw)
       : null
   const isStaffRequired =
-    (position === 'sales' && department === 'marketing') ||
-    (position === 'driver' && department === 'delivery')
+    isSalesStaff(position, department) || isDriverStaff(position, department)
 
   if (isStaffRequired && !staffId && !staffDocumentId) {
     return null
@@ -391,79 +393,47 @@ export async function fetchCustomers(): Promise<CustomerOption[]> {
 
 export async function fetchPackages(): Promise<PackageOption[]> {
   try {
-    const url = new URL('/api/packages', apiBaseUrl)
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const normalizePackage = (item: any): PackageOption => ({
+      id: item.id,
+      package_name: item.package_name ?? item.attributes?.package_name ?? '',
+      subname: item.subname ?? item.attributes?.subname ?? '',
+      product: item.product ?? item.attributes?.product ?? item.product_name ?? item.attributes?.product_name ?? '',
+      price: item.price ?? item.attributes?.price ?? '',
     })
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-    
-    const data = await response.json() as any
 
-  const normalizePackage = (item: any): PackageOption => ({
-    id: item.id,
-    package_name: item.package_name ?? item.attributes?.package_name ?? '',
-    subname: item.subname ?? item.attributes?.subname ?? '',
-    product: item.product ?? item.attributes?.product ?? item.product_name ?? item.attributes?.product_name ?? '',
-    price: item.price ?? item.attributes?.price ?? '',
-  })
+    let page = 1
+    let pageCount = 1
+    const allItems: any[] = []
 
-    if (Array.isArray(data?.packages)) {
-      return data.packages.map(normalizePackage)
-    }
+    do {
+      const url = new URL('/api/packages', apiBaseUrl)
+      url.searchParams.set('pagination[page]', String(page))
+      url.searchParams.set('pagination[pageSize]', '100')
+      url.searchParams.set('sort[0]', 'package_name:asc')
 
-    if (Array.isArray(data?.data)) {
-      return data.data.map(normalizePackage)
-    }
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
 
-    return Array.isArray(data) ? data.map(normalizePackage) : []
+      const data = await response.json() as any
+      const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+      allItems.push(...items)
+
+      pageCount = data?.meta?.pagination?.pageCount ?? 1
+      page += 1
+    } while (page <= pageCount)
+
+    return allItems.map(normalizePackage)
   } catch (error) {
     console.error('Error fetching packages:', error)
     throw new Error('Gagal mengambil data paket')
   }
 }
 
-export async function fetchNextOrderNumber(): Promise<string> {
-  try {
-    const url = new URL('/api/orders', apiBaseUrl)
-    url.searchParams.set('pagination[pageSize]', '1')
-    url.searchParams.set('sort[0]', 'order_no:desc')
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    const data = await response.json() as any
-
-    const getItem = () => {
-      if (Array.isArray(data?.data) && data.data.length > 0) return data.data[0]
-      if (Array.isArray(data?.orders) && data.orders.length > 0) return data.orders[0]
-      if (Array.isArray(data) && data.length > 0) return data[0]
-      return null
-    }
-
-    const firstItem = getItem()
-    const attributes = firstItem?.attributes ?? firstItem
-    const lastOrderNo = attributes?.order_no ?? attributes?.orderNo ?? ''
-
-    return getNextOrderNumber(lastOrderNo)
-  } catch (error) {
-    console.error('Error fetching next order number:', error)
-    throw new Error('Gagal mengambil Nomor pesanan berikutnya')
-  }
-}
+// Note: order number generation is now handled server-side (Strapi).
+// The front-end must not attempt to fetch or generate the next order number.
 
 export async function fetchNextTravelLetterNumber(): Promise<string> {
   try {
@@ -532,11 +502,13 @@ export async function createOrder(
 
     const url = new URL('/api/orders', apiBaseUrl)
     
+    const { order_no: _omitOrderNo, ...orderDataWithoutOrderNo } = payload.orderData
+
     const strapiPayload = {
       data: {
-        ...payload.orderData,
+        ...orderDataWithoutOrderNo,
         travel_letter_no: resolvedTravelLetterNo,
-        staff_id: staffId, 
+        staff_id: staffId,
         order_details: undefined,
         order_menus: undefined,
       }
@@ -557,7 +529,15 @@ export async function createOrder(
     }
 
     const orderResult = await orderResponse.json()
-    const orderId = orderResult.data.id
+    const orderDocumentId =
+      orderResult?.data?.documentId ??
+      orderResult?.data?.attributes?.documentId ??
+      null
+    const createdOrderNo =
+      orderResult?.data?.attributes?.order_no ??
+      orderResult?.data?.order_no ??
+      orderResult?.order_no ??
+      null
 
     const detailUrl = new URL('/api/order-details', apiBaseUrl)
     const detailResponse = await fetch(detailUrl, {
@@ -568,7 +548,7 @@ export async function createOrder(
       body: JSON.stringify({
         data: {
           ...payload.orderDetailData,
-          order_id: [orderId] 
+          order_id: orderDocumentId ? { connect: [orderDocumentId] } : undefined,
         }
       }),
     })
@@ -586,7 +566,7 @@ export async function createOrder(
       body: JSON.stringify({
         data: {
           ...payload.orderMenuData,
-          order_id: [orderId] 
+          order_id: orderDocumentId ? { connect: [orderDocumentId] } : undefined,
         }
       }),
     })
@@ -595,7 +575,7 @@ export async function createOrder(
       console.error('Failed to create order menu')
     }
 
-    return { success: true, resolvedTravelLetterNo }
+    return { success: true, resolvedTravelLetterNo, createdOrder: orderResult, orderNo: createdOrderNo }
   } catch (error) {
     console.error('Error creating order:', error)
     return {

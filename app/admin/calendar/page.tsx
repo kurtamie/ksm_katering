@@ -156,7 +156,7 @@ export default function Page() {
 
   return (
     <div className="bg-white w-full mx-auto">
-      <div className="border-b flex justify-between py-4 px-4 max-w-7xl border-gray-200 w-full mb-6">
+      <div className="border-b flex justify-between py-4 px-4 max-w-7xl border-black w-full mb-6">
         <h1 className="font-bold text-xl">Kalender Pesanan</h1>
       </div>
 

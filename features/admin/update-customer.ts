@@ -147,6 +147,30 @@ export async function updateCustomer(documentId: string, payload: UpdateCustomer
   }
 
   try {
+    // Validasi nomor HP unik (kecuali milik customer itu sendiri)
+    if (payload.phone_no && payload.phone_no.trim() !== '') {
+      const checkUrl = new URL('/api/customers', apiBaseUrl)
+      checkUrl.searchParams.set('filters[phone_no][$eq]', payload.phone_no.trim())
+      checkUrl.searchParams.set('filters[documentId][$ne]', identifier)
+      checkUrl.searchParams.set('pagination[pageSize]', '1')
+      
+      const checkResponse = await fetch(checkUrl, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      
+      if (checkResponse.ok) {
+        const checkResult = await checkResponse.json().catch(() => ({}))
+        const items = Array.isArray(checkResult?.data) ? checkResult.data : Array.isArray(checkResult) ? checkResult : []
+        if (items.length > 0) {
+          return {
+            success: false,
+            error: 'Nomor HP pelanggan sudah terdaftar',
+          }
+        }
+      }
+    }
+
     const url = new URL(`/api/customers/${identifier}`, apiBaseUrl)
     const data: Record<string, unknown> = { ...payload }
 

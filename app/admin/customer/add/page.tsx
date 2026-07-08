@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 import { CustomerFormValues } from '@/types/admin/customer'
 import { DEFAULT_COORDINATE } from '@/const/default-coordinates'
 import { CurrentUser } from '@/types/admin/user'
+import { isSalesStaff } from '@/const/permissions'
 
 export default function page() {
     const router = useRouter()
@@ -37,12 +38,7 @@ export default function page() {
     const normalizeRoleValue = (value: string | null | undefined) =>
         value?.toLowerCase() ?? ""
 
-    const normalizedPosition = normalizeRoleValue(currentUser?.staff?.position)
-    const normalizedDepartment = normalizeRoleValue(currentUser?.staff?.department)
-    const isAdminOperational =
-        normalizedPosition === "admin_operational" && normalizedDepartment === "operational"
-    const isSalesMarketing =
-        normalizedPosition === "sales" && normalizedDepartment === "marketing"
+    const isSales = isSalesStaff(currentUser?.staff?.position, currentUser?.staff?.department)
 
     useEffect(() => {
         let isMounted = true
@@ -70,7 +66,7 @@ export default function page() {
                 const salesStaffs = staffs.filter((staff) => {
                     const position = normalizeRoleValue(staff.position)
                     const department = normalizeRoleValue(staff.department)
-                    return position === "sales" && department === "marketing" && staff.id !== null
+                    return position === "sales" && department === "operational" && staff.id !== null
                 })
                 if (isMounted) {
                     setSalesStaffOptions(salesStaffs)
@@ -90,7 +86,7 @@ export default function page() {
     }, [])
 
     useEffect(() => {
-        if (!isSalesMarketing || !currentUser?.staff?.id) return
+        if (!isSales || !currentUser?.staff?.id) return
 
         const staffIdValue = String(currentUser.staff.id)
         const staffName = salesStaffOptions.find((staff) => staff.id === currentUser.staff?.id)?.name ?? ''
@@ -100,7 +96,7 @@ export default function page() {
             staffId: staffIdValue,
             salesName: staffName || prev.salesName,
         }))
-    }, [currentUser?.staff?.id, isSalesMarketing, salesStaffOptions])
+    }, [currentUser?.staff?.id, isSales, salesStaffOptions])
 
     useEffect(() => {
         if (!formValues.staffId) return
@@ -133,10 +129,8 @@ export default function page() {
         if (isSubmitting) return
 
         const requiredMap: Array<[keyof CustomerFormValues, string]> = [
-            ['staffId', 'Nama Sales'],
-            ['gender', 'Sapaan Pelanggan'],
+            // ['staffId', 'Nama Sales'],
             ['name', 'Nama'],
-            ['companyName', 'Nama Instansi/Perusahaan'],
             ['phoneNo', 'No HP'],
             ['company', 'Instansi'],
             ['address', 'Alamat'],
@@ -147,7 +141,7 @@ export default function page() {
             .map(([, label]) => label)
 
         if (missingFields.length > 0) {
-            toast.error(`Lengkapi field: ${missingFields.join(', ')}`)
+            toast.error(`Lengkapi data: ${missingFields.join(', ')}`)
             return
         }
 
@@ -199,12 +193,12 @@ export default function page() {
         <div className='container w-full md:w-full mx-auto px-4 py-2'>
             <div className='bg-white mt-2 flex flex-col px-4 md:px-8 rounded-lg'>
                 <div className='w-full mb-6 md:mb-8 py-4 md:py-6'>
-                    <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                    {/* <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
                         <Label htmlFor="staff_id">Nama Sales</Label>
                         <Select
                             value={formValues.staffId}
                             onValueChange={(value) => updateField('staffId', value)}
-                            disabled={staffOptionsLoading || isSalesMarketing}
+                            disabled={staffOptionsLoading || isSales}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder={staffOptionsLoading ? "Memuat..." : "Pilih nama sales"} />
@@ -224,7 +218,7 @@ export default function page() {
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
-                    </div>
+                    </div> */}
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
                         <Label htmlFor="nama">Sapaan Pelanggan</Label>
                         <Select value={formValues.gender} onValueChange={(value) => updateField('gender', value)}>
@@ -237,13 +231,13 @@ export default function page() {
                                     <SelectItem value="kak">Kak</SelectItem>
                                     <SelectItem value="bang">Bang</SelectItem>
                                     <SelectItem value="bu">Bu</SelectItem>
-                                    <SelectItem value="bp">Bp</SelectItem>
+                                    <SelectItem value="bp">Pak</SelectItem>
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Nama</Label>
+                        <Label htmlFor="nama">Nama <span className="text-red-500">*</span></Label>
                         <Input
                             type="text"
                             name="name"
@@ -255,6 +249,35 @@ export default function page() {
                         />
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                        <Label htmlFor="nama">Nomor Telepon <span className="text-red-500">*</span></Label>
+                        <Input
+                            type="text"
+                            name="phone_no"
+                            id="phone_no"
+                            placeholder="Masukkan Nomor Telepon"
+                            required
+                            value={formValues.phoneNo}
+                            onChange={(e) => updateField('phoneNo', normalizePhoneNumber(e.target.value))}
+                        />
+                    </div>
+                    <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
+                        <Label htmlFor="nama">Jenis Pelanggan <span className="text-red-500">*</span></Label>
+                        <Select value={formValues.company} onValueChange={(value) => updateField('company', value)}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Pilih instansi" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectLabel>Jenis Pelanggan</SelectLabel>
+                                    <SelectItem value="personal">Personal</SelectItem>
+                                    <SelectItem value="bumn">BUMN</SelectItem>
+                                    <SelectItem value="swasta">Swasta</SelectItem>
+                                    <SelectItem value="pariwisata">Pariwisata</SelectItem>
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                                        <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
                         <Label htmlFor="nama">Nama Instansi/Perusahaan</Label>
                         <Input
                             type="text"
@@ -267,36 +290,7 @@ export default function page() {
                         />
                     </div>
                     <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">No HP *</Label>
-                        <Input
-                            type="text"
-                            name="phone_no"
-                            id="phone_no"
-                            placeholder="Masukkan No HP"
-                            required
-                            value={formValues.phoneNo}
-                            onChange={(e) => updateField('phoneNo', normalizePhoneNumber(e.target.value))}
-                        />
-                    </div>
-                    <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Instansi</Label>
-                        <Select value={formValues.company} onValueChange={(value) => updateField('company', value)}>
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Pilih instansi" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectGroup>
-                                    <SelectLabel>Instansi</SelectLabel>
-                                    <SelectItem value="personal">Personal</SelectItem>
-                                    <SelectItem value="bumn">BUMN</SelectItem>
-                                    <SelectItem value="swasta">Swasta</SelectItem>
-                                    <SelectItem value="pariwisata">Pariwisata</SelectItem>
-                                </SelectGroup>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="grid w-full max-w-full items-center gap-1.5 mb-6 md:mb-8">
-                        <Label htmlFor="nama">Alamat</Label>
+                        <Label htmlFor="nama">Alamat <span className="text-red-500">*</span></Label>
                         <Input
                             type="text"
                             name="address"

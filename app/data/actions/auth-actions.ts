@@ -7,6 +7,7 @@ import {
   loginUserService,
 } from "@/app/data/services/auth-service";
 import { getStrapiURL } from "@/lib/utils";
+import { getDefaultRoute, normalizeStaffCookies } from "@/const/permissions";
 
 const cookieDomain = process.env.COOKIE_DOMAIN?.trim();
 
@@ -43,6 +44,54 @@ const schemaRegister = z.object({
   }),
 });
 
+// Mirrors getStrapiErrorMessage in manage-staff.ts: Strapi error responses can
+// carry the message in a few different shapes depending on the endpoint, so
+// check them in order before falling back.
+const extractStrapiErrorMessage = (error: any, fallback: string): string => {
+  if (!error) return fallback;
+  if (typeof error.message === "string" && error.message.trim()) return error.message;
+  if (Array.isArray(error.details?.errors) && error.details.errors.length > 0) {
+    const first = error.details.errors[0];
+    if (typeof first?.message === "string" && first.message.trim()) return first.message;
+  }
+  return fallback;
+};
+
+// Strapi's users-permissions plugin returns its own English error messages for
+// /api/auth/local (login) and /api/auth/local/register. Translate the known
+// ones to friendly Indonesian text so the login/register form doesn't show
+// raw English strings like "Invalid identifier or password" to the user.
+const translateAuthErrorMessage = (message: string | undefined | null): string => {
+  const fallback = "Nama pengguna atau kata sandi salah. Silakan periksa kembali.";
+  if (!message) return fallback;
+
+  const normalized = message.trim().toLowerCase();
+
+  if (normalized.includes("invalid identifier or password")) {
+    return "Nama pengguna atau kata sandi yang kamu masukkan salah.";
+  }
+  if (normalized.includes("your account has been blocked")) {
+    return "Akun kamu telah diblokir. Silakan hubungi admin untuk informasi lebih lanjut.";
+  }
+  if (normalized.includes("your account email is not confirmed")) {
+    return "Email akun kamu belum dikonfirmasi. Silakan cek email konfirmasi terlebih dahulu.";
+  }
+  if (normalized.includes("too many requests")) {
+    return "Terlalu banyak percobaan masuk. Silakan coba lagi beberapa saat lagi.";
+  }
+  if (normalized.includes("email or username") && normalized.includes("taken")) {
+    return "Nama pengguna atau email sudah terdaftar, gunakan yang lain.";
+  }
+  if (normalized.includes("username") && normalized.includes("taken")) {
+    return "Nama pengguna sudah terdaftar.";
+  }
+  if (normalized.includes("email") && normalized.includes("taken")) {
+    return "Email sudah terdaftar.";
+  }
+
+  return fallback;
+};
+
 export async function registerUserAction(prevState: any, formData: FormData) {
   const rawFormData = {
     username: formData.get("username"),
@@ -75,12 +124,19 @@ export async function registerUserAction(prevState: any, formData: FormData) {
   }
 
   if (responseData.error) {
+    const translatedMessage = translateAuthErrorMessage(
+      extractStrapiErrorMessage(responseData.error, "Gagal membuat akun. Silakan coba lagi.")
+    );
+
     return {
       ...prevState,
       ...rawFormData,
-      strapiErrors: responseData.error,
+      strapiErrors: {
+        ...responseData.error,
+        message: translatedMessage,
+      },
       zodErrors: null,
-      message: "Failed to Register.",
+      message: translatedMessage,
     };
   }
 
@@ -95,18 +151,18 @@ const schemaLogin = z.object({
   identifier: z
     .string()
     .min(3, {
-      message: "Identifier harus memiliki minimal 3 karakter atau lebih",
-    })
-    .max(20, {
-      message: "Masukkan username atau alamat email yang valid",
+      message: "Nama Akun Pengguna harus memiliki minimal 3 karakter atau lebih",
     }),
+    // .max(20, {
+    //   message: "Masukkan username atau alamat email yang valid",
+    // }),
   password: z
     .string()
     .min(6, {
-      message: "Password harus memiliki minimal 6 karakter atau lebih",
+      message: "Kata Sandi harus memiliki minimal 8 karakter atau lebih",
     })
     .max(100, {
-      message: "Password harus antara 6 sampai 100 karakter",
+      message: "Kata Sandi harus antara 6 sampai 100 karakter",
     }),
 });
 
@@ -124,7 +180,7 @@ export async function loginUserAction(prevState: any, formData: FormData) {
       ...rawFormData,
       zodErrors: validatedFields.error.flatten().fieldErrors,
       strapiErrors: null,
-      message: "Missing Fields. Failed to Login.",
+      message: "Silakan lengkapi semua kolom yang wajib diisi.",
     };
   }
 
@@ -136,17 +192,24 @@ export async function loginUserAction(prevState: any, formData: FormData) {
       ...rawFormData,
       strapiErrors: null,
       zodErrors: null,
-      message: "Ops! Something went wrong. Please try again.",
+      message: "Ups! Terjadi kesalahan. Silakan coba lagi.",
     };
   }
 
   if (responseData.error) {
+    const translatedMessage = translateAuthErrorMessage(
+      extractStrapiErrorMessage(responseData.error, "Nama pengguna atau kata sandi salah. Silakan periksa kembali.")
+    );
+
     return {
       ...prevState,
       ...rawFormData,
-      strapiErrors: responseData.error,
+      strapiErrors: {
+        ...responseData.error,
+        message: translatedMessage,
+      },
       zodErrors: null,
-      message: "Failed to Login.",
+      message: translatedMessage,
     };
   }
 
@@ -160,17 +223,21 @@ export async function loginUserAction(prevState: any, formData: FormData) {
     cookieStore.set("user_email", String(responseData.user.email), config);
   }
   const userRole = await getUserRoleFromToken(responseData.jwt);
+  const normalizedRole = normalizeStaffCookies(
+    userRole?.position ?? null,
+    userRole?.department ?? null
+  );
 
-  if (userRole?.position) {
-    cookieStore.set("user_position", userRole.position, config);
+  if (normalizedRole.position) {
+    cookieStore.set("user_position", normalizedRole.position, config);
   } else {
-    cookieStore.set("user_position", "", { ...config, maxAge: 0 });
+    cookieStore.delete("user_position");
   }
 
-  if (userRole?.department) {
-    cookieStore.set("user_department", userRole.department, config);
+  if (normalizedRole.department) {
+    cookieStore.set("user_department", normalizedRole.department, config);
   } else {
-    cookieStore.set("user_department", "", { ...config, maxAge: 0 });
+    cookieStore.delete("user_department");
   }
 
   if (userRole?.staffId) {
@@ -185,20 +252,28 @@ export async function loginUserAction(prevState: any, formData: FormData) {
     cookieStore.set("user_staff_document_id", "", { ...config, maxAge: 0 });
   }
 
-  redirect("/admin/order");
+  redirect(getDefaultRoute(normalizedRole.position, normalizedRole.department));
 }
+
+const AUTH_COOKIE_NAMES = [
+  "jwt",
+  "user_position",
+  "user_department",
+  "userId",
+  "user_name",
+  "user_email",
+  "user_staff_id",
+  "user_staff_document_id",
+] as const;
 
 export async function logoutAction() {
   const cookieStore = await cookies();
-  cookieStore.set("jwt", "", { ...config, maxAge: 0 });
-  cookieStore.set("user_position", "", { ...config, maxAge: 0 });
-  cookieStore.set("user_department", "", { ...config, maxAge: 0 });
-  cookieStore.set("userId", "", { ...config, maxAge: 0 });
-  cookieStore.set("user_name", "", { ...config, maxAge: 0 });
-  cookieStore.set("user_email", "", { ...config, maxAge: 0 });
-  cookieStore.set("user_staff_id", "", { ...config, maxAge: 0 });
-  cookieStore.set("user_staff_document_id", "", { ...config, maxAge: 0 });
-  redirect("/");
+
+  for (const name of AUTH_COOKIE_NAMES) {
+    cookieStore.delete(name);
+  }
+
+  redirect("/auth/login");
 }
 
 async function getUserRoleFromToken(token: string) {

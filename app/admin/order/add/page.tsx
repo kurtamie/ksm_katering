@@ -17,7 +17,7 @@ import MapCoordinatePicker from "@/components/custom/Coordinate-input"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import React, { useEffect, useState } from "react"
-import { createOrder, fetchCustomers, fetchNextOrderNumber, fetchNextTravelLetterNumber, fetchPackages, getCurrentUser } from "@/features/admin/create-order"
+import { createOrder, fetchCustomers, fetchNextTravelLetterNumber, fetchPackages, getCurrentUser } from "@/features/admin/create-order"
 import { createCustomer } from "@/features/admin/create-customer"
 import { fetchStaffs, type Staff } from "@/features/admin/get-staff"
 import { fetchOrderMenuRecommendations, type MenuRecommendations } from "@/features/admin/get-order-menu"
@@ -29,28 +29,15 @@ import { fetchDishes } from "@/features/admin/get-dish"
 import { CustomerOption, OrderDishOptions, OrderFormValues, PackageOption } from "@/types/admin/order";
 import { CustomerFormValues } from "@/types/admin/customer";
 import { normalizeRoleValue } from "@/const/misc";
+import { getOrderPermissions } from "@/const/permissions";
 import { CurrentUser } from "@/types/admin/user";
 import { DEFAULT_DISH_OPTIONS } from "@/const/admin/dish";
 import { arrives, DEFAULT_ORDER_NUMBER, defaultProducts, getOrderMenuFieldVisibility, mapDishesToOrderOptions, orderMenuFieldLabels, orderMenuFields, type OrderMenuField, suppliers } from "@/const/admin/order";
 import { DEFAULT_COORDINATE } from "@/const/default-coordinates";
 import { FaPlus } from "react-icons/fa";
 
-const canAddOrder = (position: string | null, department: string | null) => {
-  const normalizedPosition = normalizeRoleValue(position)
-  const normalizedDepartment = normalizeRoleValue(department)
-
-  const isAdminOperational =
-    normalizedPosition === "admin_operational" &&
-    normalizedDepartment === "operational"
-  const isSalesMarketing =
-    normalizedPosition === "sales" && normalizedDepartment === "marketing"
-  const isManager =
-    normalizedPosition === "manager" && normalizedDepartment === "manager"
-  const isDeveloper =
-    normalizedPosition === "developer" && normalizedDepartment === "developer"
-
-  return isAdminOperational || isSalesMarketing || isManager || isDeveloper
-}
+const canAddOrder = (position: string | null, department: string | null) =>
+  getOrderPermissions(position, department).canAdd
 
 const calculateLeaveTime = (arrivalTime: string) => {
   const [hours, minutes, seconds = "0"] = arrivalTime.split(":")
@@ -178,7 +165,6 @@ export default function Page() {
     address: "",
   })
   const [formValues, setFormValues] = useState<OrderFormValues>({
-    orderNo: "",
     travelLetterNo: "",
     staffId: "",
     customerId: "",
@@ -293,11 +279,6 @@ export default function Page() {
     return Array.from(uniqueProducts.values())
   }
 
-  const normalizedPosition = normalizeRoleValue(currentUser?.staff?.position ?? null)
-  const normalizedDepartment = normalizeRoleValue(currentUser?.staff?.department ?? null)
-  const isAdminOperational =
-    normalizedPosition === "admin_operational" && normalizedDepartment === "operational"
-
   const normalizedProduct = formValues.product.trim().toLowerCase()
   const filteredPackageOptions = normalizedProduct
     ? packageOptions.filter((pkg) => pkg.product?.trim().toLowerCase() === normalizedProduct)
@@ -317,16 +298,10 @@ export default function Page() {
     hasMenuField("mainDish3") ? 3 : hasMenuField("mainDish2") ? 2 : hasMenuField("mainDish") ? 1 : 0
   const filteredMainDishes = filterMainDishesBySubname(selectedPackage?.subname, dishOptions.mainDish)
 
-  const selectedStaffId = normalizeId(formValues.staffId)
   const currentStaffId = normalizeId(currentUser?.staff?.id ?? null)
-  const activeStaffId = isAdminOperational ? selectedStaffId : currentStaffId
-  const selectedStaffDocumentId = isAdminOperational && selectedStaffId
-    ? normalizeDocumentId(
-      salesStaffOptions.find((staff) => normalizeId(staff.id) === selectedStaffId)?.documentId ?? null
-    )
-    : null
   const currentStaffDocumentId = normalizeDocumentId(currentUser?.staff?.documentId ?? null)
-  const activeStaffDocumentId = isAdminOperational ? selectedStaffDocumentId : currentStaffDocumentId
+  const activeStaffId = currentStaffId
+  const activeStaffDocumentId = currentStaffDocumentId
   const filteredCustomerOptions = customerOptions.filter((customer) => {
       const customerStaffId = normalizeId(customer.staff_id)
       const customerStaffDocumentId = normalizeDocumentId(customer.staff_document_id ?? null)
@@ -396,37 +371,11 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
-    if (!isAdminOperational) {
-      setSalesStaffOptions([])
-      return
-    }
-
-    const loadSalesStaffs = async () => {
-      setStaffOptionsLoading(true)
-      try {
-        const staffs = await fetchStaffs()
-        const salesStaffs = staffs.filter((staff) => {
-          const position = normalizeRoleValue(staff.position)
-          const department = normalizeRoleValue(staff.department)
-          return position === "sales" && department === "marketing" && staff.id !== null
-        })
-        setSalesStaffOptions(salesStaffs)
-      } finally {
-        setStaffOptionsLoading(false)
-      }
-    }
-
-    loadSalesStaffs()
-  }, [isAdminOperational])
-
-  useEffect(() => {
-    const selectedSales = salesStaffOptions.find((staff) => normalizeId(staff.id) === activeStaffId)
     setNewCustomerValues((prev) => ({
       ...prev,
       staffId: activeStaffId ? String(activeStaffId) : "",
-      salesName: selectedSales?.name ?? prev.salesName,
     }))
-  }, [activeStaffId, salesStaffOptions])
+  }, [activeStaffId])
 
   useEffect(() => {
     const loadRecommendations = async () => {
@@ -447,19 +396,7 @@ export default function Page() {
     loadRecommendations()
   }, [])
 
-  useEffect(() => {
-    const loadOrderNumber = async () => {
-      try {
-        const nextOrderNo = await fetchNextOrderNumber()
-        setFormValues((prev) => ({ ...prev, orderNo: nextOrderNo || DEFAULT_ORDER_NUMBER }))
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal memuat Nomor pesanan")
-        setFormValues((prev) => ({ ...prev, orderNo: DEFAULT_ORDER_NUMBER }))
-      }
-    }
-
-    loadOrderNumber()
-  }, [])
+  // Order number is generated server-side; do not fetch or set it here.
 
   useEffect(() => {
     const loadTravelLetterNumber = async () => {
@@ -613,7 +550,7 @@ export default function Page() {
 
     const requiredMap: Array<[keyof OrderFormValues, string]> = [
       ["customerId", "Pelanggan"],
-      ["customerType", "Golongan Pelanggan"],
+      // ["customerType", "Jenis Pelanggan"],
       ["executorTeam", "Tim Eksekusi"],
       ["product", "Produk"],
       ["packageId", "Paket"],
@@ -621,7 +558,7 @@ export default function Page() {
       ["sellingPrice", "Harga Jual"],
       ["arriveTime", "Jam Sampai"],
       ["recipientName", "Nama Penerima"],
-      ["recipientPhone", "No. HP Penerima"],
+      ["recipientPhone", "Nomor Telepon Penerima"],
       ["recipientAddress", "Alamat Pengiriman"],
     ]
 
@@ -636,15 +573,13 @@ export default function Page() {
       .map(([, label]) => label)
 
     if (missingFields.length > 0) {
-      toast.error(`Lengkapi field: ${missingFields.join(", ")}`)
+      toast.error(`Lengkapi data: ${missingFields.join(", ")}`)
       return
     }
 
     const customerIdNumber = Number(formValues.customerId)
     const packageIdNumber = Number(formValues.packageId)
-    const staffIdNumber = isAdminOperational
-      ? normalizeId(formValues.staffId)
-      : normalizeId(currentUser?.staff?.id ?? null)
+    const staffIdNumber = normalizeId(currentUser?.staff?.id ?? null)
 
     if (Number.isNaN(customerIdNumber) || Number.isNaN(packageIdNumber)) {
       toast.error("Pelanggan atau paket tidak valid")
@@ -652,7 +587,7 @@ export default function Page() {
     }
 
     if (!staffIdNumber) {
-      toast.error(isAdminOperational ? "Staf sales tidak valid" : "Staf tidak valid")
+      toast.error("Staf tidak valid")
       return
     }
 
@@ -662,7 +597,6 @@ export default function Page() {
 
       const payload = {
         orderData: {
-          order_no: formValues.orderNo,
           travel_letter_no: formValues.travelLetterNo,
           created_date: createdDate,
           customer_id: customerIdNumber,
@@ -751,7 +685,7 @@ export default function Page() {
       .map(([, label]) => label)
 
     if (missingFields.length > 0) {
-      toast.error(`Lengkapi field pelanggan: ${missingFields.join(", ")}`)
+      toast.error(`Lengkapi data pelanggan: ${missingFields.join(", ")}`)
       return
     }
 
@@ -777,7 +711,7 @@ export default function Page() {
 
       let createdCustomer = result.customer
       if (createdCustomer) {
-        setCustomerOptions((prev) => [...prev, createdCustomer])
+        setCustomerOptions((prev) => [...prev, createdCustomer as CustomerOption])
       } else {
         const customers = await fetchCustomers()
         setCustomerOptions(customers)
@@ -836,20 +770,10 @@ export default function Page() {
           </div>
           <div className="w-full mb-6 md:mb-8 -mt-4 flex flex-col gap-0">
             <h2 className="order-[10] rounded-t-lg bg-white px-4 py-3 text-base font-bold text-red-800">Data Pesanan</h2>
-            <div className="order-[11] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-                <Label htmlFor="order_no">Nomor pesanan</Label>
-                <Input
-                type="text"
-                name="order_no"
-                id="order_no"
-                placeholder="Nomor pesanan"
-                value={formValues.orderNo}
-                readOnly
-              />
-            </div>
+            {/* order_no is generated server-side; no input displayed here */}
             <h2 className="order-[20] mt-4 rounded-t-lg bg-white px-4 py-3 font-bold text-red-800">Data Pelanggan</h2>
             <div className="order-[22] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="customer_id">Pelanggan *</Label>
+              <Label htmlFor="customer_id">Pelanggan <span className="text-red-500">*</span></Label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Select
                   value={formValues.customerId}
@@ -886,44 +810,14 @@ export default function Page() {
               </div>
             </div>
             <h2 className="order-[30] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-bold text-red-800">Detail Pesanan</h2>
-            <h2 className="order-[49] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-bold text-red-800">Detail Harga</h2>
+            <h2 className="order-[50] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-bold text-red-800">Detail Harga</h2>
 
-            {isAdminOperational ? (
-              <div className="order-[21] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-                <Label htmlFor="staff_id">Staf Sales</Label>
-                <Select
-                  value={formValues.staffId}
-                  onValueChange={(value) => updateField("staffId", value)}
-                  disabled={staffOptionsLoading}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={staffOptionsLoading ? "Memuat..." : "Pilih staf sales"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Staf Sales</SelectLabel>
-                      {salesStaffOptions.length === 0 ? (
-                        <SelectItem value="-" disabled>
-                          Belum ada staf sales
-                        </SelectItem>
-                      ) : (
-                        salesStaffOptions.map((staff) => (
-                          <SelectItem key={staff.id ?? staff.documentId ?? staff.name} value={String(staff.id)}>
-                            {staff.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
             <div className="order-[12] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="created_by">Bulan</Label>
               <Input type="text" name="created_by" id="created_by" value={currentMonthLabel} readOnly />
             </div>
             <div className="order-[23] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="customer_type">Golongan Pelanggan *</Label>
+              <Label htmlFor="customer_type">Jenis Pelanggan <span className="text-red-500">*</span></Label>
               <ToggleGroup
                 type="single"
                 value={formValues.customerType}
@@ -948,7 +842,7 @@ export default function Page() {
               </ToggleGroup>
             </div>
             <div className="order-[16] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="executor_name">Tim Eksekusi *</Label>
+              <Label htmlFor="executor_name">Tim Eksekusi  <span className="text-red-500">*</span></Label>
               <ToggleGroup
                 type="single"
                 value={formValues.executorTeam}
@@ -973,7 +867,7 @@ export default function Page() {
               <Label htmlFor="nama">Pemasok</Label>
               <Select value={formValues.supplier} onValueChange={(value) => updateField("supplier", value)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Pemasok" />
+                  <SelectValue placeholder="Masukkan pemasok" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
@@ -988,10 +882,10 @@ export default function Page() {
               </Select>
             </div>
             <div className="order-[31] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="product">Produk *</Label>
+              <Label htmlFor="product">Layanan <span className="text-red-500">*</span></Label>
               <Select value={formValues.product} onValueChange={(value) => updateField("product", value)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Product" />
+                  <SelectValue placeholder="Pilih produk" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
@@ -1006,7 +900,7 @@ export default function Page() {
               </Select>
             </div>
             <div className="order-[32] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="product">Paket *</Label>
+              <Label htmlFor="product">Paket <span className="text-red-500">*</span></Label>
               <Select
                 value={formValues.packageId}
                 onValueChange={(value) => updateField("packageId", value)}
@@ -1019,7 +913,7 @@ export default function Page() {
                         ? "Memuat..."
                         : formValues.product
                           ? "Pilih Paket"
-                          : "Pilih produk dulu"
+                          : "Pilih layanan dulu"
                     }
                   />
                 </SelectTrigger>
@@ -1035,8 +929,8 @@ export default function Page() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="order-[50] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="qty">Jumlah Pesanan *</Label>
+            <div className="order-[51] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+              <Label htmlFor="qty">Jumlah Pesanan <span className="text-red-500">*</span></Label>
               <Input
                 type="number"
                 name="qty"
@@ -1046,8 +940,8 @@ export default function Page() {
                 onChange={(e) => updateField("qty", e.target.value)}
               />
             </div>
-            <div className="order-[51] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="selling_price">Harga Jual (dalam ribuan) *</Label>
+            <div className="order-[52] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+              <Label htmlFor="selling_price">Harga Jual <span className="text-red-500">*</span></Label>
               <Input
                 type="number"
                 name="selling_price"
@@ -1068,7 +962,7 @@ export default function Page() {
                 onChange={(e) => updateField("brokerFee", e.target.value)}
               />
             </div> */}
-            <div className="order-[52] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            {/* <div className="order-[52] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="price_for_ksm">Harga Untuk KSM</Label>
               <Input
                 type="number"
@@ -1078,8 +972,8 @@ export default function Page() {
                 value={formValues.priceForKsm}
                 onChange={(e) => updateField("priceForKsm", e.target.value)}
               />
-            </div>
-            <div className="order-[53] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            </div> */}
+            {/* <div className="order-[53] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="min_selling_price">Harga Minimum</Label>
               <Input
                 type="number"
@@ -1089,8 +983,8 @@ export default function Page() {
                 value={formValues.minSellingPrice}
                 onChange={(e) => updateField("minSellingPrice", e.target.value)}
               />
-            </div>
-            <div className="order-[54] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            </div> */}
+            <div className="order-[53] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="amount">Subtotal Harga</Label>
               <Input
                 type="number"
@@ -1101,7 +995,7 @@ export default function Page() {
                 onChange={(e) => updateField("amount", e.target.value)}
               />
             </div>
-            <div className="order-[55] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[54] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="delivery_charge">Biaya Pengiriman</Label>
               <Input
                 type="number"
@@ -1112,7 +1006,7 @@ export default function Page() {
                 onChange={(e) => updateField("deliveryCharge", e.target.value)}
               />
             </div>
-            <div className="order-[56] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[55] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="total_amount">Total Harga</Label>
               <Input
                 type="number"
@@ -1123,7 +1017,7 @@ export default function Page() {
                 onChange={(e) => updateField("totalAmount", e.target.value)}
               />
             </div>
-            <div className="order-[57] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[56] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment1">Pembayaran 1</Label>
               <Input
                 type="number"
@@ -1134,7 +1028,7 @@ export default function Page() {
                 onChange={(e) => updateField("payment1", e.target.value)}
               />
             </div>
-            <div className="order-[58] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[57] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment2">Pembayaran 2</Label>
               <Input
                 type="number"
@@ -1145,7 +1039,7 @@ export default function Page() {
                 onChange={(e) => updateField("payment2", e.target.value)}
               />
             </div>
-            <div className="order-[59] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[58] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment3">Pembayaran 3</Label>
               <Input
                 type="number"
@@ -1156,7 +1050,7 @@ export default function Page() {
                 onChange={(e) => updateField("payment3", e.target.value)}
               />
             </div>
-            <div className="order-[48] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4">
+            <div className="order-[49] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4">
               <Label htmlFor="delivery_note">Keterangan</Label>
               <Textarea
                 name="delivery_note"
@@ -1167,7 +1061,7 @@ export default function Page() {
               />
             </div>
             <div className={fieldClass("rice", "order-[33] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="rice"> Nasi *</Label>
+              <Label htmlFor="rice"> Nasi <span className="text-red-500">*</span></Label>
               <Select value={formValues.rice} onValueChange={(value) => updateField("rice", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih nasi" />
@@ -1186,7 +1080,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.rice}</Label>
             </div>
             <div className={fieldClass("mainDish", "order-[34] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="main_dish">Lauk Utama *</Label>
+              <Label htmlFor="main_dish">Lauk Utama <span className="text-red-500">*</span></Label>
               <Select value={formValues.mainDish} onValueChange={(value) => updateField("mainDish", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih lauk utama" />
@@ -1208,7 +1102,7 @@ export default function Page() {
             </div>
             {mainDishFieldCount >= 2 ? (
               <div className="order-[35] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-                <Label htmlFor="main_dish2">Lauk Utama 2 *</Label>
+                <Label htmlFor="main_dish2">Lauk Utama 2 <span className="text-red-500">*</span></Label>
                 <Select value={formValues.mainDish2} onValueChange={(value) => updateField("mainDish2", value)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Pilih lauk utama 2" />
@@ -1228,7 +1122,7 @@ export default function Page() {
             ) : null}
             {mainDishFieldCount >= 3 ? (
               <div className="order-[36] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-                <Label htmlFor="main_dish3">Lauk Utama 3 *</Label>
+                <Label htmlFor="main_dish3">Lauk Utama 3 <span className="text-red-500">*</span></Label>
                 <Select value={formValues.mainDish3} onValueChange={(value) => updateField("mainDish3", value)}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Pilih lauk utama 3" />
@@ -1247,7 +1141,7 @@ export default function Page() {
               </div>
             ) : null}
             <div className={fieldClass("additionalDish", "order-[37] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="additional_dish">Tambahan *</Label>
+              <Label htmlFor="additional_dish">Lauk Tambahan <span className="text-red-500">*</span></Label>
               <Select value={formValues.additionalDish} onValueChange={(value) => updateField("additionalDish", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih lauk tambahan" />
@@ -1266,7 +1160,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.additionalDish}</Label>
             </div>
             <div className={fieldClass("vegetable", "order-[38] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="vegetable">Sayur *</Label>
+              <Label htmlFor="vegetable">Sayur <span className="text-red-500">*</span></Label>
               <Select value={formValues.vegetable} onValueChange={(value) => updateField("vegetable", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih sayur" />
@@ -1285,7 +1179,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.vegetable}</Label>
             </div>
             <div className={fieldClass("sauce", "order-[39] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="sauce">Sambal *</Label>
+              <Label htmlFor="sauce">Sambal <span className="text-red-500">*</span></Label>
               <Select value={formValues.sauce} onValueChange={(value) => updateField("sauce", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih sambal" />
@@ -1304,7 +1198,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.sauce}</Label>
             </div>
             <div className={fieldClass("chip", "order-[40] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="chip">Kerupuk *</Label>
+              <Label htmlFor="chip">Kerupuk <span className="text-red-500">*</span></Label>
               <Select value={formValues.chip} onValueChange={(value) => updateField("chip", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kerupuk" />
@@ -1325,7 +1219,7 @@ export default function Page() {
               </Label>
             </div>
             <div className={fieldClass("fruit", "order-[41] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="fruit">Buah *</Label>
+              <Label htmlFor="fruit">Buah <span className="text-red-500">*</span></Label>
               <Select value={formValues.fruit} onValueChange={(value) => updateField("fruit", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih buah" />
@@ -1344,7 +1238,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: {menuRecommendations.fruit}</Label>
             </div>
             <div className={fieldClass("mineralWater", "order-[42] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="mineral_water">Air Mineral *</Label>
+              <Label htmlFor="mineral_water">Air Mineral <span className="text-red-500">*</span></Label>
               <Select value={formValues.mineralWater} onValueChange={(value) => updateField("mineralWater", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih air mineral" />
@@ -1362,7 +1256,7 @@ export default function Page() {
               </Select>
             </div>
             <div className={fieldClass("box", "order-[43] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="box">Kotak *</Label>
+              <Label htmlFor="box">Kotak</Label>
               <Select value={formValues.box} onValueChange={(value) => updateField("box", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kotak" />
@@ -1380,7 +1274,7 @@ export default function Page() {
               </Select>
             </div>
             <div className={fieldClass("pudding", "order-[44] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="pudding">Puding *</Label>
+              <Label htmlFor="pudding">Puding </Label>
               <Input
                 type="text"
                 name="pudding"
@@ -1391,7 +1285,7 @@ export default function Page() {
               />
             </div>
             <div className={fieldClass("snack", "order-[45] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="snack">Snack *</Label>
+              <Label htmlFor="snack">Snack  <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="snack"
@@ -1402,7 +1296,7 @@ export default function Page() {
               />
             </div>
             <div className={fieldClass("snack2", "order-[46] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="snack2">Snack 2 *</Label>
+              <Label htmlFor="snack2">Snack 2  <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="snack2"
@@ -1413,7 +1307,7 @@ export default function Page() {
               />
             </div>
             <div className={fieldClass("snack3", "order-[47] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="snack3">Snack 3 *</Label>
+              <Label htmlFor="snack3">Snack 3  <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="snack3"
@@ -1423,8 +1317,8 @@ export default function Page() {
                 onChange={(e) => updateField("snack3", e.target.value)}
               />
             </div>
-            <div className={fieldClass("snack4", "order-[48] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4")}>
-              <Label htmlFor="snack4">Snack 4 *</Label>
+             <div className={fieldClass("snack4", "order-[48] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
+              <Label htmlFor="snack4">Snack 4  <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="snack4"
@@ -1435,7 +1329,7 @@ export default function Page() {
               />
             </div>
             <div className="order-[13] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="delivery_date">Tanggal Kirim</Label>
+              <Label htmlFor="delivery_date">Tanggal Kirim  <span className="text-red-500">*</span></Label>
               <div className="relative flex gap-2">
                 <Input
                   id="date"
@@ -1452,7 +1346,7 @@ export default function Page() {
                   <PopoverTrigger asChild>
                     <Button id="date-picker" variant="ghost" className="absolute top-1/2 right-2 size-6 -translate-y-1/2">
                       <CalendarIcon className="size-3.5" />
-                      <span className="sr-only">Pilih tanggal</span>
+                      <span className="sr-only">Pilih tanggal </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto overflow-hidden p-0" align="end">
@@ -1462,7 +1356,7 @@ export default function Page() {
               </div>
             </div>
             <div className="order-[14] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="arrive_time">Jam Sampai *</Label>
+              <Label htmlFor="arrive_time">Jam Sampai  <span className="text-red-500">*</span></Label>
               <Select value={formValues.arriveTime} onValueChange={(value) => updateField("arriveTime", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Tentukan jam sampai" />
@@ -1485,13 +1379,13 @@ export default function Page() {
                 type="text"
                 name="leave"
                 id="leave"
-                placeholder="Tentukan jam berangkat"
+                placeholder="Jam berangkat yang ditentukan"
                 value={formValues.leaveTime}
                 disabled
               />
             </div>
             <div className="order-[24] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="recipient_name">Nama Penerima *</Label>
+              <Label htmlFor="recipient_name">Nama Penerima  <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="recipient_name"
@@ -1502,18 +1396,18 @@ export default function Page() {
               />
             </div>
             <div className="order-[25] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="recipient_phone_no">No HP Penerima *</Label>
+              <Label htmlFor="recipient_phone_no">Nomor Telepon Penerima  <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="recipient_phone_no"
                 id="recipient_phone_no"
-                placeholder="Masukkan no penerima"
+                placeholder="Masukkan nomor telepon penerima"
                 value={formValues.recipientPhone}
                 onChange={(e) => updateField("recipientPhone", e.target.value)}
               />
             </div>
             <div className="order-[26] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="recipient_address">Alamat *</Label>
+              <Label htmlFor="recipient_address">Alamat  <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="recipient_address"
@@ -1539,45 +1433,41 @@ export default function Page() {
             <DialogTitle>Tambah Pelanggan</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4">
-            <div className="grid gap-1.5">
+            {/* <div className="grid gap-1.5">
               <Label htmlFor="modal_staff_id">Nama Sales</Label>
               <Input
                 id="modal_staff_id"
                 value={newCustomerValues.salesName || "Tanpa sales"}
                 readOnly
               />
-            </div>
+            </div> */}
             <div className="grid gap-1.5">
               <Label>Sapaan Pelanggan</Label>
               <Select value={newCustomerValues.gender} onValueChange={(value) => updateNewCustomerField("gender", value)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Pilih sapaan pelanggan" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="kak">Kak</SelectItem>
                   <SelectItem value="bang">Bang</SelectItem>
                   <SelectItem value="bu">Bu</SelectItem>
-                  <SelectItem value="bp">Bp</SelectItem>
+                  <SelectItem value="bp">Pak</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="modal_customer_name">Nama</Label>
+              <Label htmlFor="modal_customer_name">Nama Pelanggan</Label>
               <Input id="modal_customer_name" value={newCustomerValues.name} onChange={(event) => updateNewCustomerField("name", event.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="modal_company_name">Nama Instansi/Perusahaan</Label>
-              <Input id="modal_company_name" value={newCustomerValues.companyName} onChange={(event) => updateNewCustomerField("companyName", event.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="modal_phone_no">No HP</Label>
+              <Label htmlFor="modal_phone_no">Nomor Telepon</Label>
               <Input id="modal_phone_no" value={newCustomerValues.phoneNo} onChange={(event) => updateNewCustomerField("phoneNo", normalizePhoneNumber(event.target.value))} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Instansi</Label>
+              <Label>Jenis Pelanggan</Label>
               <Select value={newCustomerValues.company} onValueChange={(value) => updateNewCustomerField("company", value)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Pilih instansi" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="personal">Personal</SelectItem>
@@ -1586,6 +1476,10 @@ export default function Page() {
                   <SelectItem value="pariwisata">Pariwisata</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="modal_company_name">Nama Instansi/Perusahaan</Label>
+              <Input id="modal_company_name" value={newCustomerValues.companyName} onChange={(event) => updateNewCustomerField("companyName", event.target.value)} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="modal_address">Alamat</Label>
@@ -1607,3 +1501,5 @@ export default function Page() {
   </div>
   )
 }
+
+// Force nextjs hot reload trigger 2

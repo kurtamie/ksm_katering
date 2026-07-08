@@ -1,84 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  canAccessRoute,
+  getDefaultRoute,
+  getPermissions,
+} from "@/const/permissions";
 
-const PROTECTED_PREFIXES = ["/admin", "/dashboard"];
+const PROTECTED_PREFIXES = ["/admin", "/dashboard", "/order"];
 const AUTH_PREFIX = "/auth";
-
-const BASE_ROUTES = ["/admin/order", "/admin/calendar", "/admin/account"];
-const OPERATIONAL_CRUD_ROUTES = [...BASE_ROUTES, "/admin/dish", "/admin/menu"];
-const DEFAULT_ALLOWED_ROUTES = ["/admin/order", "/admin/account"];
-const ROLE_ROUTE_ACCESS = [
-  {
-    position: "admin_finance",
-    department: "finance",
-    routes: BASE_ROUTES,
-  },
-  {
-    position: "admin_operational",
-    department: "operational",
-    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer"],
-  },
-  {
-    position: "supervisor",
-    department: "operational",
-    routes: OPERATIONAL_CRUD_ROUTES,
-  },
-  {
-    position: "prasmanan",
-    department: "operational",
-    routes: BASE_ROUTES,
-  },
-  {
-    position: "kitchen",
-    department: "operational",
-    routes: BASE_ROUTES,
-  },
-  {
-    position: "sales",
-    department: "marketing",
-    routes: [...BASE_ROUTES, "/admin/customer"],
-  },
-  {
-    position: "driver",
-    department: "delivery",
-    routes: BASE_ROUTES,
-  },
-  {
-    position: "manager",
-    department: "manager",
-    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
-  },
-  {
-    position: "developer",
-    department: "developer",
-    routes: [...OPERATIONAL_CRUD_ROUTES, "/admin/customer", "/admin/graph", "/admin/user"],
-  },
-];
-
-const ORDER_ADD_ALLOWED = [
-  { position: "admin_operational", department: "operational" },
-  { position: "sales", department: "marketing" },
-  { position: "manager", department: "manager" },
-  { position: "developer", department: "developer" },
-];
-
-const MENU_ADD_ALLOWED = [
-  { position: "admin_operational", department: "operational" },
-  { position: "manager", department: "manager" },
-  { position: "developer", department: "developer" },
-]
-
-const DISH_MUTATION_ALLOWED = MENU_ADD_ALLOWED;
-
-const getAllowedRoutes = (position?: string, department?: string) => {
-  if (!position || !department) return DEFAULT_ALLOWED_ROUTES;
-
-  const match = ROLE_ROUTE_ACCESS.find(
-    (rule) => rule.position === position && rule.department === department
-  );
-
-  return match?.routes ?? DEFAULT_ALLOWED_ROUTES;
-};
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -108,61 +37,59 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === "/" || isAuthRoute) {
-    return redirectTo("/admin/order");
+    const userPosition = request.cookies.get("user_position")?.value?.toLowerCase();
+    const userDepartment = request.cookies.get("user_department")?.value?.toLowerCase();
+    return redirectTo(getDefaultRoute(userPosition, userDepartment));
   }
 
   if (isProtectedRoute) {
     try {
-      const userPosition = request.cookies.get("user_position")?.value;
-      const userDepartment = request.cookies.get("user_department")?.value;
-      const normalizedPosition = userPosition?.toLowerCase();
-      const normalizedDepartment = userDepartment?.toLowerCase();
-      const allowedRoutes = getAllowedRoutes(
-        normalizedPosition,
-        normalizedDepartment
-      );
-      const hasAccess = allowedRoutes.some((route) =>
-        pathname.startsWith(route)
-      );
+      const userPosition = request.cookies.get("user_position")?.value?.toLowerCase();
+      const userDepartment = request.cookies.get("user_department")?.value?.toLowerCase();
+      const permissions = getPermissions(userPosition, userDepartment);
+      const hasAccess = canAccessRoute(pathname, userPosition, userDepartment);
 
       if (!hasAccess) {
-        return redirectTo("/admin/order");
+        return redirectTo(getDefaultRoute(userPosition, userDepartment));
       }
 
-      if (pathname.startsWith("/admin/order/add")) {
-        const canAdd = ORDER_ADD_ALLOWED.some(
-          (rule) =>
-            rule.position === normalizedPosition &&
-            rule.department === normalizedDepartment
-        );
-
-        if (!canAdd) {
-          return redirectTo("/admin/order");
-        }
+      if (pathname.startsWith("/admin/order/add") && !permissions.orders.canAdd) {
+        return redirectTo(getDefaultRoute(userPosition, userDepartment));
       }
 
-      if (pathname.startsWith("/admin/menu/add")) {
-        const canAdd = MENU_ADD_ALLOWED.some(
-          (rule) =>
-            rule.position === normalizedPosition &&
-            rule.department === normalizedDepartment
-        );
-
-        if (!canAdd) {
-          return redirectTo("/admin/order");
-        }
+      if (
+        pathname.startsWith("/admin/order/") &&
+        pathname.includes("/edit") &&
+        !permissions.orders.canEdit
+      ) {
+        return redirectTo(getDefaultRoute(userPosition, userDepartment));
       }
 
-      if (pathname.startsWith("/admin/dish/add") || pathname.includes("/admin/dish/")) {
-        const canMutateDish = DISH_MUTATION_ALLOWED.some(
-          (rule) =>
-            rule.position === normalizedPosition &&
-            rule.department === normalizedDepartment
-        );
+      if (pathname.startsWith("/admin/menu/add") && !permissions.canManageMenu) {
+        return redirectTo(getDefaultRoute(userPosition, userDepartment));
+      }
 
-        if (!canMutateDish) {
-          return redirectTo("/admin/order");
-        }
+      if (
+        (pathname.startsWith("/admin/dish/add") || pathname.includes("/admin/dish/")) &&
+        !permissions.canManageMenu
+      ) {
+        return redirectTo(getDefaultRoute(userPosition, userDepartment));
+      }
+
+      if (
+        (pathname.startsWith("/admin/customer/add") ||
+          pathname.includes("/admin/customer/")) &&
+        !permissions.canManageCustomers
+      ) {
+        return redirectTo(getDefaultRoute(userPosition, userDepartment));
+      }
+
+      if (pathname.startsWith("/admin/user") && !permissions.canManageUsers) {
+        return redirectTo(getDefaultRoute(userPosition, userDepartment));
+      }
+
+      if (pathname.startsWith("/admin/graph") && !permissions.canViewGraph) {
+        return redirectTo(getDefaultRoute(userPosition, userDepartment));
       }
     } catch (error) {
       console.error("Error checking user role:", error);

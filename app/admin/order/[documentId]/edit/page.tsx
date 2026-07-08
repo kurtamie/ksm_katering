@@ -88,6 +88,9 @@ export default function Page() {
   const [coordinates, setCoordinates] = useState<Coordinate>(DEFAULT_COORDINATE)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingOrder, setIsLoadingOrder] = useState(false)
+  // Mode text input untuk paket: aktif jika package_id kosong tapi package_name ada di order
+  const [isPackageTextMode, setIsPackageTextMode] = useState(false)
+  const [packageNameOnly, setPackageNameOnly] = useState("")
   const [formValues, setFormValues] = useState<OrderFormValues>({
     orderNo: "",
     customerId: "",
@@ -136,8 +139,12 @@ export default function Page() {
   const [metaIds, setMetaIds] = useState({
     orderId: null as number | null,
     orderDetailId: null as number | null,
+    orderDetailDocumentId: null as string | null,
     orderMenuId: null as number | null,
+    orderMenuDocumentId: null as string | null,
+    invoiceDocumentId: null as string | null,
   })
+  const [paymentStatus, setPaymentStatus] = useState("unpaid")
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     if (selectedDate) {
@@ -163,9 +170,10 @@ export default function Page() {
     ? packageOptions.find((pkg) => pkg.id.toString() === formValues.packageId)
     : undefined
   const selectedPackageLabel = selectedPackage ? formatPackageLabel(selectedPackage) : ""
+  const effectivePackageLabel = isPackageTextMode ? packageNameOnly : selectedPackageLabel
   const visibleMenuFields = React.useMemo(
-    () => getOrderMenuFieldVisibility(formValues.product, selectedPackageLabel),
-    [formValues.product, selectedPackageLabel]
+    () => getOrderMenuFieldVisibility(formValues.product, effectivePackageLabel),
+    [formValues.product, effectivePackageLabel, isPackageTextMode]
   )
   const hasMenuField = (field: OrderMenuField) => visibleMenuFields[field]
   const fieldClass = (field: OrderMenuField, className: string) =>
@@ -288,8 +296,21 @@ export default function Page() {
         setMetaIds({
           orderId: order.orderId,
           orderDetailId: order.orderDetailId,
+          orderDetailDocumentId: order.orderDetailDocumentId,
           orderMenuId: order.orderMenuId,
+          orderMenuDocumentId: order.orderMenuDocumentId,
+          invoiceDocumentId: order.invoiceDocumentId,
         })
+        setPaymentStatus(order.paymentStatus || "unpaid")
+
+        // Jika packageId kosong tapi packageName ada → mode text input
+        if (!order.packageId && order.packageName) {
+          setIsPackageTextMode(true)
+          setPackageNameOnly(order.packageName)
+        } else {
+          setIsPackageTextMode(false)
+          setPackageNameOnly("")
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Gagal memuat data pesanan"
         toast.error(message)
@@ -344,13 +365,15 @@ export default function Page() {
   }, [formValues.qty, formValues.sellingPrice, formValues.brokerFee, formValues.deliveryCharge])
 
   useEffect(() => {
+    // Jangan reset packageId jika packageOptions belum selesai dimuat (hindari race condition)
     if (!formValues.packageId) return
+    if (optionsLoading || packageOptions.length === 0) return
 
     const isValid = filteredPackageOptions.some((pkg) => pkg.id.toString() === formValues.packageId)
     if (!isValid) {
       setFormValues((prev) => ({ ...prev, packageId: "" }))
     }
-  }, [filteredPackageOptions, formValues.packageId])
+  }, [filteredPackageOptions, formValues.packageId, optionsLoading, packageOptions.length])
 
   useEffect(() => {
     if (filteredMainDishes.length === 0) return
@@ -410,22 +433,21 @@ export default function Page() {
     const requiredMap: Array<[keyof OrderFormValues, string]> = [
       ["orderNo", "Nomor Pesanan"],
       ["customerId", "Pelanggan"],
-      ["customerType", "Golongan Pelanggan"],
+      // ["customerType", "Jenis Pelanggan"],
       ["executorTeam", "Tim Eksekusi"],
-      ["product", "Produk"],
-      ["packageId", "Paket"],
+      ["product", "Layanan"],
       ["qty", "Jumlah Pesanan"],
       ["sellingPrice", "Harga Jual"],
       // ["brokerFee", "Bayaran Jasa Broker"],
-      ["priceForKsm", "Harga untuk KSM"],
-      ["minSellingPrice", "Harga Jual Minimal"],
+      // ["priceForKsm", "Harga untuk KSM"],
+      // ["minSellingPrice", "Harga Jual Minimal"],
       ["amount", "Jumlah"],
-      ["deliveryCharge", "Biaya Pengiriman"],
+      // ["deliveryCharge", "Biaya Pengiriman"],
       ["totalAmount", "Jumlah Total"],
       ["arriveTime", "Jam Sampai"],
       ["leaveTime", "Jam Berangkat"],
       ["recipientName", "Nama Penerima"],
-      ["recipientPhone", "No. HP Penerima"],
+      ["recipientPhone", "Nomor Telepon Penerima"],
       ["recipientAddress", "Alamat Pengiriman"],
     ]
 
@@ -435,22 +457,34 @@ export default function Page() {
       }
     })
 
+    // Validasi paket: jika mode select wajib pilih, jika mode text wajib isi
+    if (!isPackageTextMode) {
+      requiredMap.push(["packageId", "Paket"])
+    } else if (!packageNameOnly.trim()) {
+      toast.error("Nama paket tidak boleh kosong")
+      return
+    }
+
     const missingFields = requiredMap
       .filter(([key]) => !String(formValues[key] ?? "").trim())
       .map(([, label]) => label)
 
     if (missingFields.length > 0) {
-      toast.error(`Lengkapi field: ${missingFields.join(", ")}`)
+      toast.error(`Lengkapi data: ${missingFields.join(", ")}`)
       return
     }
 
     const customerIdNumber = Number(formValues.customerId)
-    const packageIdNumber = Number(formValues.packageId)
+    const packageIdNumber = isPackageTextMode ? 0 : Number(formValues.packageId)
     const staffDriverIdValue = formValues.staffDriverId.trim()
     const staffDriverIdNumber = staffDriverIdValue ? Number(staffDriverIdValue) : null
 
-    if (Number.isNaN(customerIdNumber) || Number.isNaN(packageIdNumber)) {
-      toast.error("Pelanggan atau paket tidak valid")
+    if (Number.isNaN(customerIdNumber)) {
+      toast.error("Pelanggan tidak valid")
+      return
+    }
+    if (!isPackageTextMode && Number.isNaN(packageIdNumber)) {
+      toast.error("Paket tidak valid")
       return
     }
 
@@ -464,7 +498,9 @@ export default function Page() {
       const payload = {
         orderId: metaIds.orderId,
         orderDetailId: metaIds.orderDetailId,
+        orderDetailDocumentId: metaIds.orderDetailDocumentId,
         orderMenuId: metaIds.orderMenuId,
+        orderMenuDocumentId: metaIds.orderMenuDocumentId,
         orderData: {
           order_no: formValues.orderNo || DEFAULT_ORDER_NUMBER,
           created_date: new Date().toISOString(),
@@ -473,7 +509,10 @@ export default function Page() {
           executor_name: formValues.executorTeam,
           supplier: formValues.supplier,
           product: formValues.product,
-          package_id: [packageIdNumber],
+          package_id: isPackageTextMode ? [] : [packageIdNumber],
+          package_name: isPackageTextMode
+            ? packageNameOnly
+            : (packageOptions.find((p) => p.id === packageIdNumber)?.package_name ?? ""),
           recipient_name: formValues.recipientName,
           recipient_phone_no: formValues.recipientPhone,
           delivery_note: formValues.deliveryNote,
@@ -516,6 +555,10 @@ export default function Page() {
           snack3: hasMenuField("snack3") ? formValues.snack3 : "",
           snack4: hasMenuField("snack4") ? formValues.snack4 : "",
         },
+        invoiceData: {
+          documentId: metaIds.invoiceDocumentId,
+          payment_status: paymentStatus,
+        },
       }
 
       const result = await updateOrder(documentId, payload)
@@ -557,7 +600,7 @@ export default function Page() {
           <div className="w-full mb-6 md:mb-8 -mt-4 flex flex-col gap-0">
             <h2 className="order-[10] rounded-t-lg bg-white px-4 py-3 text-base font-semibold text-gray-700">Data Pesanan</h2>
             <div className="order-[11] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-                <Label htmlFor="order_no">Nomor Pesanan *</Label>
+                <Label htmlFor="order_no">Nomor Pesanan</Label>
                 <Input
                 type="text"
                 name="order_no"
@@ -570,7 +613,7 @@ export default function Page() {
             </div>
             <h2 className="order-[20] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-semibold text-gray-700">Data Pelanggan</h2>
               <div className="order-[22] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-                <Label htmlFor="customer_id">Pelanggan</Label>
+                <Label htmlFor="customer_id">Pelanggan <span className="text-red-500">*</span></Label>
                 <Select
                   value={formValues.customerId}
                   onValueChange={(value) => updateField("customerId", value)}
@@ -592,13 +635,13 @@ export default function Page() {
                 </Select>
               </div>
             <h2 className="order-[30] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-semibold text-gray-700">Detail Pesanan</h2>
-            <h2 className="order-[49] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-semibold text-gray-700">Detail Harga</h2>
+            <h2 className="order-[50] mt-4 rounded-t-lg bg-white px-4 py-3 text-base font-semibold text-gray-700">Detail Harga</h2>
             <div className="order-[12] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="created_by">Bulan</Label>
               <Input type="text" name="created_by" id="created_by" value={currentMonthLabel} readOnly />
             </div>
-            <div className="order-[23] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="customer_type">Golongan Pelanggan</Label>
+            {/* <div className="order-[23] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+              <Label htmlFor="customer_type">Jenis Pelanggan <span className="text-red-500">*</span></Label>
               <ToggleGroup
                 type="single"
                 value={formValues.customerType}
@@ -620,9 +663,9 @@ export default function Page() {
                   BUMN
                 </ToggleGroupItem>
               </ToggleGroup>
-            </div>
+            </div> */}
             <div className="order-[16] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="executor_name">Tim Eksekusi </Label>
+              <Label htmlFor="executor_name">Tim Eksekusi <span className="text-red-500">*</span></Label>
               <ToggleGroup
                 type="single"
                 value={formValues.executorTeam}
@@ -661,14 +704,22 @@ export default function Page() {
               </Select>
             </div>
             <div className="order-[31] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="product">Produk</Label>
-              <Select value={formValues.product} onValueChange={(value) => updateField("product", value)}>
+              <Label htmlFor="product">Layanan <span className="text-red-500">*</span></Label>
+              <Select value={formValues.product} onValueChange={(value) => {
+                updateField("product", value)
+                // Saat produk diubah, switch kembali ke mode select paket
+                if (isPackageTextMode) {
+                  setIsPackageTextMode(false)
+                  setPackageNameOnly("")
+                  setFormValues((prev) => ({ ...prev, packageId: "" }))
+                }
+              }}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Product" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Product</SelectLabel>
+                    <SelectLabel>Layanan</SelectLabel>
                     {(productOptions.length ? productOptions : defaultProducts).map((product) => (
                       <SelectItem key={product} value={product}>
                         {product}
@@ -679,25 +730,51 @@ export default function Page() {
               </Select>
             </div>
             <div className="order-[32] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="product">Paket</Label>
-              <Select value={formValues.packageId} onValueChange={(value) => updateField("packageId", value)} disabled={optionsLoading}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={optionsLoading ? "Memuat..." : "Pilih Paket"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Paket</SelectLabel>
-                    {filteredPackageOptions.map((packageses) => (
-                      <SelectItem key={packageses.id} value={packageses.id.toString()}>
-                        {formatPackageLabel(packageses)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="packageField">Paket <span className="text-red-500">*</span></Label>
+              {isPackageTextMode ? (
+                // Mode text: package_name ada tapi package_id kosong
+                <div className="flex gap-2">
+                  <Input
+                    id="packageField"
+                    value={packageNameOnly}
+                    onChange={(e) => setPackageNameOnly(e.target.value)}
+                    placeholder="Nama paket"
+                    className="flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPackageTextMode(false)
+                      setPackageNameOnly("")
+                      setFormValues((prev) => ({ ...prev, packageId: "" }))
+                    }}
+                    className="shrink-0 rounded-md border border-input bg-background px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    title="Ganti ke pilih dari daftar paket"
+                  >
+                    Pilih Paket
+                  </button>
+                </div>
+              ) : (
+                // Mode select: pilih dari daftar paket
+                <Select value={formValues.packageId} onValueChange={(value) => updateField("packageId", value)} disabled={optionsLoading}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={optionsLoading ? "Memuat..." : "Pilih Paket"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Paket</SelectLabel>
+                      {filteredPackageOptions.map((packageses) => (
+                        <SelectItem key={packageses.id} value={packageses.id.toString()}>
+                          {formatPackageLabel(packageses)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-            <div className="order-[50] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="qty">Jumlah Pesanan *</Label>
+            <div className="order-[51] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+              <Label htmlFor="qty">Jumlah Pesanan <span className="text-red-500">*</span></Label>
               <Input
                 type="number"
                 name="qty"
@@ -708,8 +785,8 @@ export default function Page() {
                 onChange={(e) => updateField("qty", e.target.value)}
               />
             </div>
-            <div className="order-[51] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="selling_price">Harga Jual (dalam ribuan) *</Label>
+            <div className="order-[52] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+              <Label htmlFor="selling_price">Harga Jual <span className="text-red-500">*</span></Label>
               <Input
                 type="number"
                 name="selling_price"
@@ -731,7 +808,7 @@ export default function Page() {
                 onChange={(e) => updateField("brokerFee", e.target.value)}
               />
             </div> */}
-            <div className="order-[52] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            {/* <div className="order-[52] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="price_for_ksm">Harga Untuk KSM</Label>
               <Input
                 type="number"
@@ -741,8 +818,8 @@ export default function Page() {
                 value={formValues.priceForKsm}
                 onChange={(e) => updateField("priceForKsm", e.target.value)}
               />
-            </div>
-            <div className="order-[53] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            </div> */}
+            {/* <div className="order-[53] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="min_selling_price">Harga Minimum</Label>
               <Input
                 type="number"
@@ -752,8 +829,8 @@ export default function Page() {
                 value={formValues.minSellingPrice}
                 onChange={(e) => updateField("minSellingPrice", e.target.value)}
               />
-            </div>
-            <div className="order-[54] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            </div> */}
+            <div className="order-[53] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="amount">Subtotal Harga</Label>
               <Input
                 type="number"
@@ -765,7 +842,7 @@ export default function Page() {
                 onChange={(e) => updateField("amount", e.target.value)}
               />
             </div>
-            <div className="order-[55] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[54] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="delivery_charge">Biaya Pengiriman</Label>
               <Input
                 type="number"
@@ -776,7 +853,7 @@ export default function Page() {
                 onChange={(e) => updateField("deliveryCharge", e.target.value)}
               />
             </div>
-            <div className="order-[56] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[55] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="total_amount">Total Harga</Label>
               <Input
                 type="number"
@@ -788,7 +865,7 @@ export default function Page() {
                 onChange={(e) => updateField("totalAmount", e.target.value)}
               />
             </div>
-            <div className="order-[57] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[56] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment1">Pembayaran 1</Label>
               <Input
                 type="number"
@@ -800,7 +877,7 @@ export default function Page() {
                 onChange={(e) => updateField("payment1", e.target.value)}
               />
             </div>
-            <div className="order-[58] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[57] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment2">Pembayaran 2</Label>
               <Input
                 type="number"
@@ -812,7 +889,7 @@ export default function Page() {
                 onChange={(e) => updateField("payment2", e.target.value)}
               />
             </div>
-            <div className="order-[59] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+            <div className="order-[58] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
               <Label htmlFor="payment3">Pembayaran 3</Label>
               <Input
                 type="number"
@@ -824,7 +901,26 @@ export default function Page() {
                 onChange={(e) => updateField("payment3", e.target.value)}
               />
             </div>
-            <div className="order-[48] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4">
+            <div className="order-[59] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
+              <Label htmlFor="payment_status">Status Pembayaran</Label>
+              <Select
+                value={paymentStatus}
+                onValueChange={setPaymentStatus}
+                disabled={isLoadingOrder}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih status pembayaran" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Status Pembayaran</SelectLabel>
+                    <SelectItem value="unpaid">Belum Lunas</SelectItem>
+                    <SelectItem value="paid">Lunas</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="order-[49] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4">
               <Label htmlFor="delivery_note">Keterangan</Label>
               <Textarea
                 name="delivery_note"
@@ -1013,7 +1109,7 @@ export default function Page() {
               <Label className="text-xs italic text-gray-500">Recommend: Apel, Jeruk</Label>
             </div>
             <div className={fieldClass("mineralWater", "order-[42] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="mineral_water">Air Mineral *</Label>
+              <Label htmlFor="mineral_water">Air Mineral <span className="text-red-500">*</span></Label>
               <Select value={formValues.mineralWater} onValueChange={(value) => updateField("mineralWater", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih air mineral" />
@@ -1031,7 +1127,7 @@ export default function Page() {
               </Select>
             </div>
             <div className={fieldClass("box", "order-[43] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="box">Kotak *</Label>
+              <Label htmlFor="box">Kotak <span className="text-red-500">*</span></Label>
               <Select value={formValues.box} onValueChange={(value) => updateField("box", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih kotak" />
@@ -1049,7 +1145,7 @@ export default function Page() {
               </Select>
             </div>
             <div className={fieldClass("pudding", "order-[44] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="pudding">Puding *</Label>
+              <Label htmlFor="pudding">Puding <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="pudding"
@@ -1060,7 +1156,7 @@ export default function Page() {
               />
             </div>
             <div className={fieldClass("snack", "order-[45] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="snack">Snack *</Label>
+              <Label htmlFor="snack">Snack <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="snack"
@@ -1071,7 +1167,7 @@ export default function Page() {
               />
             </div>
             <div className={fieldClass("snack2", "order-[46] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="snack2">Snack 2 *</Label>
+              <Label htmlFor="snack2">Snack 2 <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="snack2"
@@ -1082,7 +1178,7 @@ export default function Page() {
               />
             </div>
             <div className={fieldClass("snack3", "order-[47] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
-              <Label htmlFor="snack3">Snack 3 *</Label>
+              <Label htmlFor="snack3">Snack 3 <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="snack3"
@@ -1092,8 +1188,8 @@ export default function Page() {
                 onChange={(e) => updateField("snack3", e.target.value)}
               />
             </div>
-            <div className={fieldClass("snack4", "order-[48] grid w-full max-w-full items-center gap-1.5 rounded-b-lg bg-white px-4 py-3 md:px-6 mb-4")}>
-              <Label htmlFor="snack4">Snack 4 *</Label>
+            <div className={fieldClass("snack4", "order-[48] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6")}>
+              <Label htmlFor="snack4">Snack 4 <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="snack4"
@@ -1104,7 +1200,7 @@ export default function Page() {
               />
             </div>
             <div className="order-[13] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="delivery_date">Tanggal Kirim*</Label>
+              <Label htmlFor="delivery_date">Tanggal Kirim <span className="text-red-500">*</span></Label>
               <div className="relative flex gap-2">
                 <Input
                   id="date"
@@ -1131,7 +1227,7 @@ export default function Page() {
               </div>
             </div>
             <div className="order-[14] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="arrive_time">Jam Sampai</Label>
+              <Label htmlFor="arrive_time">Jam Sampai <span className="text-red-500">*</span></Label>
               <Select value={formValues.arriveTime} onValueChange={(value) => updateField("arriveTime", value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Tentukan jam sampai" />
@@ -1161,7 +1257,7 @@ export default function Page() {
               />
             </div>
             <div className="order-[24] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="recipient_name">Nama Penerima</Label>
+              <Label htmlFor="recipient_name">Nama Penerima <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="recipient_name"
@@ -1173,7 +1269,7 @@ export default function Page() {
               />
             </div>
             <div className="order-[25] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="recipient_phone_no">No HP Penerima</Label>
+              <Label htmlFor="recipient_phone_no">Nomor Telepon Penerima <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="recipient_phone_no"
@@ -1185,7 +1281,7 @@ export default function Page() {
               />
             </div>
             <div className="order-[26] grid w-full max-w-full items-center gap-1.5 bg-white px-4 py-3 md:px-6">
-              <Label htmlFor="recipient_address">Alamat</Label>
+              <Label htmlFor="recipient_address">Alamat <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 name="recipient_address"
@@ -1238,3 +1334,6 @@ export default function Page() {
     </div>
   )
 }
+
+// Force nextjs hot reload trigger 2
+

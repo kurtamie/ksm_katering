@@ -1,5 +1,5 @@
 import { getStrapiURL } from '@/lib/utils'
-import type { DishTypeValue } from '@/const/admin/dish'
+import type { DishTypeValue, ServiceValue } from '@/const/admin/dish'
 
 export type UpdateDishPayload = {
   name: string | null
@@ -38,13 +38,13 @@ export async function updateDish(documentId: string, payload: UpdateDishPayload)
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      const message = errorData?.error?.message ?? errorData?.message ?? 'Gagal memperbarui lauk'
+      const message = errorData?.error?.message ?? errorData?.message ?? 'Gagal memperbarui menu'
       return { success: false, error: message }
     }
 
     return { success: true }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Gagal memperbarui lauk'
+    const message = error instanceof Error ? error.message : 'Gagal memperbarui menu'
     return { success: false, error: message }
   }
 }

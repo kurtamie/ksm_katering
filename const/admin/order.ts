@@ -3,6 +3,92 @@ import { OrderDishOptions } from "@/types/admin/order"
 
 export const DEFAULT_ORDER_NUMBER = "0001"
 
+export const ORDER_STEP_SEQUENCE = ["packing", "send", "success"] as const
+
+export type OrderStep = (typeof ORDER_STEP_SEQUENCE)[number] | "waiting_payment" | ""
+
+export const ORDER_STEP_LABELS: Record<string, string> = {
+  waiting_payment: "Menunggu Pembayaran",
+  packing: "Dikemas",
+  send: "Dalam Pengiriman",
+  success: "Pesanan Diterima",
+}
+
+export const STEP_LABEL_MAP = ORDER_STEP_LABELS
+
+export type OrderInvoiceLike = {
+  invoice_no?: string | null
+  invoice_date?: string | null
+  payment_status?: string | null
+}
+
+export type OrderWithInvoices = {
+  step?: string | null
+  delivery_status?: string | null
+  invoices?: OrderInvoiceLike[] | null
+}
+
+const getInvoiceTimestamp = (value?: string | null) => {
+  if (!value) return 0
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+export const getLatestInvoice = (order: OrderWithInvoices) => {
+  const invoices = order.invoices ?? []
+  if (invoices.length === 0) return null
+  return [...invoices].sort(
+    (a, b) => getInvoiceTimestamp(b.invoice_date) - getInvoiceTimestamp(a.invoice_date)
+  )[0]
+}
+
+export const isOrderPaid = (order: OrderWithInvoices): boolean => {
+  const paymentStatus = getLatestInvoice(order)?.payment_status?.toLowerCase()
+  return paymentStatus === "paid"
+}
+
+export const normalizeOrderStep = (value?: string | null): string => {
+  if (!value || value === "-") return ""
+  const byLabel = Object.entries(ORDER_STEP_LABELS).find(([, label]) => label === value)
+  if (byLabel) return byLabel[0]
+  return value
+}
+
+export const getStoredOrderStep = (order: OrderWithInvoices): string => {
+  return normalizeOrderStep(order.step ?? order.delivery_status)
+}
+
+export const getEffectiveOrderStep = (order: OrderWithInvoices): string => {
+  if (!isOrderPaid(order)) return "waiting_payment"
+  return getStoredOrderStep(order)
+}
+
+export const getOrderStatusLabel = (order: OrderWithInvoices): string => {
+  const step = getEffectiveOrderStep(order)
+  if (!step) return "-"
+  return ORDER_STEP_LABELS[step] ?? step
+}
+
+export const getNextOrderStep = (order: OrderWithInvoices): string | null => {
+  if (!isOrderPaid(order)) return null
+
+  const currentStep = getStoredOrderStep(order)
+  if (!currentStep) return ORDER_STEP_SEQUENCE[0]
+
+  const currentIndex = ORDER_STEP_SEQUENCE.indexOf(
+    currentStep as (typeof ORDER_STEP_SEQUENCE)[number]
+  )
+  if (currentIndex === -1) return ORDER_STEP_SEQUENCE[0]
+  if (currentIndex >= ORDER_STEP_SEQUENCE.length - 1) return null
+  return ORDER_STEP_SEQUENCE[currentIndex + 1]
+}
+
+export const getNextOrderStepLabel = (order: OrderWithInvoices): string | null => {
+  const nextStep = getNextOrderStep(order)
+  if (!nextStep) return null
+  return ORDER_STEP_LABELS[nextStep] ?? nextStep
+}
+
 export type OrderMenuField =
   | "rice"
   | "mainDish"
@@ -68,9 +154,22 @@ const normalizeValue = (value: string | null | undefined) =>
     .trim()
 
 export const getPackageCode = (packageLabel: string | null | undefined) => {
-  const normalized = normalizeValue(packageLabel)
-  const match = normalized.match(/\bpaket\s*([a-f]\+?)\b/) ?? normalized.match(/\b([a-f]\+?)\b/)
-  return match?.[1]?.toUpperCase() ?? ""
+  if (!packageLabel) return ""
+  const normalized = String(packageLabel).trim().toLowerCase()
+  
+  // Cari kata "paket <kode>" dulu (contoh: "paket a", "paket a+")
+  const paketMatch = normalized.match(/paket\s*([a-f]\+?)/i)
+  if (paketMatch) {
+    return paketMatch[1].toUpperCase()
+  }
+  
+  // Cari kode paket mandiri [a-f] atau [a-f]+
+  const singleMatch = normalized.match(/(?:^|\s|\b)([a-f]\+?)(?:\s|$|\(|\b)/i)
+  if (singleMatch) {
+    return singleMatch[1].toUpperCase()
+  }
+  
+  return ""
 }
 
 const enableFields = (
@@ -86,7 +185,8 @@ const enableFields = (
 const mealFields = (
   mainDishCount: 1 | 2 | 3,
   includePudding: boolean,
-  includeFruit = true
+  includeFruit = true,
+  includeBox = true
 ) => {
   const fields: OrderMenuField[] = [
     "rice",
@@ -99,7 +199,7 @@ const mealFields = (
     "chip",
     ...(includeFruit ? (["fruit"] as OrderMenuField[]) : []),
     "mineralWater",
-    "box",
+    ...(includeBox ? (["box"] as OrderMenuField[]) : []),
     ...(includePudding ? (["pudding"] as OrderMenuField[]) : []),
   ]
 
@@ -113,6 +213,13 @@ export const getOrderMenuFieldVisibility = (
   const normalizedProduct = normalizeValue(product)
   const packageCode = getPackageCode(packageLabel)
 
+  console.log("[DEBUG Menu Field Visibility]", {
+    product,
+    packageLabel,
+    extractedPackageCode: packageCode,
+    normalizedProduct
+  })
+
   if (normalizedProduct === "custom") {
     return enableFields(orderMenuFields)
   }
@@ -121,19 +228,31 @@ export const getOrderMenuFieldVisibility = (
     return enableFields(["box"])
   }
 
+  // Pondokan: tidak ada field menu, hanya pilih paket + detail harga
+  if (normalizedProduct === "pondokan" || normalizedProduct === "katering pondokan") {
+    return emptyMenuVisibility()
+  }
+
   if (normalizedProduct === "snack kotak" || normalizedProduct === "snack") {
-    if (packageCode === "E" || packageCode === "F") {
-      return enableFields(["snack", "snack2", "snack3", "snack4", "mineralWater", "box"])
-    }
-    if (packageCode === "C" || packageCode === "D") {
-      return enableFields(["snack", "snack2", "snack3", "mineralWater", "box"])
-    }
-    return enableFields(["snack", "snack2", "mineralWater", "box"])
+    // Paket A/D → 2 kue | B/E → 3 kue | C/F → 4 kue
+    const snackCount =
+      packageCode === "C" || packageCode === "F" ? 4
+      : packageCode === "B" || packageCode === "E" ? 3
+      : 2 // A, D, atau default
+
+    const snackFields: OrderMenuField[] =
+      snackCount >= 4 ? ["snack", "snack2", "snack3", "snack4", "mineralWater", "box"]
+      : snackCount >= 3 ? ["snack", "snack2", "snack3", "mineralWater", "box"]
+      : ["snack", "snack2", "mineralWater", "box"]
+
+    return enableFields(snackFields)
   }
 
   if (normalizedProduct === "bento") {
-    if (packageCode === "B") return mealFields(2, true)
-    return mealFields(1, true, false)
+    // Paket A: 1 lauk, WITH pudding, WITH buah
+    // Paket B: 2 lauk, WITH pudding, WITH buah
+    const mainDishCount = packageCode === "B" ? 2 : 1
+    return mealFields(mainDishCount as 1 | 2, true, true)
   }
 
   if (
@@ -141,17 +260,13 @@ export const getOrderMenuFieldVisibility = (
     normalizedProduct === "prasmanan" ||
     normalizedProduct === "prasmanan pernikahan"
   ) {
-    const mainDishCount = packageCode.startsWith("C")
-      ? 3
-      : packageCode.startsWith("B")
-        ? 2
-        : 1
-    const includePudding =
-      packageCode === "B+" ||
-      packageCode === "C+" ||
-      (normalizedProduct !== "nasi kotak" && packageCode === "A+")
-
-    return mealFields(mainDishCount as 1 | 2 | 3, includePudding)
+    // A/B/C → tanpa pudding | A+/B+/C+ → dengan pudding
+    const mainDishCount: 1 | 2 | 3 =
+      packageCode.startsWith("C") ? 3
+      : packageCode.startsWith("B") ? 2
+      : 1
+    const includePudding = packageCode.endsWith("+")
+    return mealFields(mainDishCount, includePudding)
   }
 
   return mealFields(1, false)
@@ -181,6 +296,7 @@ export const mapDishesToOrderOptions = (dishes: DishItem[]): OrderDishOptions =>
     fruit: [],
     mineralWater: [],
     box: [],
+    pudding: [],
   }
 
   const seen: Record<keyof OrderDishOptions, Set<string>> = {
@@ -193,6 +309,7 @@ export const mapDishesToOrderOptions = (dishes: DishItem[]): OrderDishOptions =>
     fruit: new Set(),
     mineralWater: new Set(),
     box: new Set(),
+    pudding: new Set(),
   }
 
   dishes.forEach((dish) => {
@@ -215,6 +332,7 @@ export const mapDishesToOrderOptions = (dishes: DishItem[]): OrderDishOptions =>
     if (normalizedType === "fruit") key = "fruit"
     if (normalizedType === "mineral_water") key = "mineralWater"
     if (normalizedType === "box") key = "box"
+    if (normalizedType === "pudding" || normalizedType === "puding") key = "pudding"
 
     if (!key) return
 
